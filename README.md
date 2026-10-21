@@ -385,14 +385,19 @@ and [CodeQL](https://codeql.github.com/) scans every push.
   Absolute paths, `../` paths and web images are left out on purpose, as their alt text, and
   the result's notification says which ones.
 - **Compress has a floor.** If even its last step doesn't reach the size you asked for, it says
-  how small the file can get instead of producing a bad result. It only changes the format
-  when you tick **Allow a smaller format**, and it never converts video to another codec.
-- **Edited PDF pages become pictures.** Their text can't be selected or searched any more
-  (unedited pages keep theirs), and there's no crop or rotate for PDFs. Saved copies are flat,
-  so there are no layers to go back to.
-- **Phone sending needs KDE Connect** with a paired phone on the same network. The shelf, the
-  action bubbles, phone sending and the wheel shortcut are the newest parts of Hala and have
-  had less real-world use than the converter.
+  how small the file can get instead of producing a bad result. Pictures and sound only
+  change format when you tick **Allow a smaller format**; video always comes out as an H.264
+  MP4, whatever it was before (a WebM or MKV becomes an MP4).
+- **Edited PDF pages become pictures.** Their text can't be selected or searched any more, and
+  their links and form fields are gone (unedited pages keep all of theirs). The saved copy has
+  no bookmarks, attachments or document metadata, and there's no crop or rotate for PDFs.
+  Saved copies are flat, so there are no layers to go back to.
+- **Password-protected PDFs can't be opened in the editor.** Remove the password first (for
+  example with `qpdf --decrypt --password=… in.pdf out.pdf`).
+- **Phone sending needs KDE Connect** with a paired phone on the same network.
+- **The newest parts have had the least real-world use:** the shelf, the action bubbles,
+  phone sending, the wheel shortcut and PDF editing. They're tested, but mostly offscreen,
+  not yet in daily use like the converter.
 - **The size limits are fixed.** Very large but legitimate inputs, such as a picture over 500
   megapixels or an archive of mostly empty disk images, are refused rather than asked about.
 - **English only.**
