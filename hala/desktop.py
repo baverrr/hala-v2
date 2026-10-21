@@ -27,7 +27,7 @@ gi.require_version("GLibUnix", "2.0")
 from gi.repository import Gio, GLib, GLibUnix  # noqa: E402  # pyright: ignore[reportAttributeAccessIssue]
 
 from . import formats as f  # noqa: E402
-from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status  # noqa: E402
+from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status, clean_note  # noqa: E402
 from .registry import common_targets, route_for  # noqa: E402
 from .runner import ConversionError  # noqa: E402
 from .tools import Tool, tool  # noqa: E402
@@ -199,7 +199,6 @@ class Batch:
 
     def _notify_success(self, done: list[Job]) -> None:
         outputs = [j.output for j in done if j.output]
-        notes = [n for j in done for n in j.notes]
         self.copy_text = ""
         if len(outputs) == 1:
             body = _esc(outputs[0].name)
@@ -213,8 +212,7 @@ class Batch:
             folder = _common_folder(outputs).name
             body = f"{len(outputs)} files in {_esc(folder)}"
             actions = ["show", "Show in folder"]
-        if notes:
-            body += "".join(f"<br><i>{_esc(n)}</i>" for n in notes[:3])
+        body += "".join(f"<br>{line}" for line in _note_lines(done))
         self.outputs = outputs
         self._notify(self._title(), body, "hala", actions)
 
@@ -225,6 +223,8 @@ class Batch:
                  f"{_esc(_error_detail(j.error).replace(str(j.src) + ': ', ''))}"
                  for j in failed[:5]]
         lines += [_esc(s) for s in self.skipped[:5]]
+        # Notes about results that did work (pictures left out...) still matter.
+        lines += _note_lines(done)
         if cancelled:
             lines.append("The rest were cancelled.")
         total = len(self.jobs) + len(self.skipped)
@@ -323,6 +323,17 @@ def _fallback_dialog(summary: str, body: str) -> None:
                          stdin=subprocess.DEVNULL, start_new_session=True)
 
 
+def _note_lines(done: list[Job], shown: int = 3) -> list[str]:
+    """The jobs' notes as notification lines (all of them go to the log)."""
+    notes = [f"{j.src.name}: {n}" if len(done) > 1 else n for j in done for n in j.notes]
+    for note in notes:
+        log.info("note: %s", note)
+    lines = [f"<i>{_esc(clean_note(n))}</i>" for n in notes[:shown]]
+    if len(notes) > shown:
+        lines.append(f"<i>…and {len(notes) - shown} more (see {LOG_FILE.name})</i>")
+    return lines
+
+
 def _esc(text: str) -> str:
     # Plasma renders a markup subset; it shows "&#x27;" literally, so leave quotes alone.
     return html.escape(_printable(text), quote=False)
@@ -350,7 +361,9 @@ def _error_detail(text: str | None) -> str:
 
 
 def _setup_log() -> None:
-    if log.handlers:  # once per process: a second "w" handler would truncate the first's file
+    # Once per process: a second "w" handler would truncate the first's file. hala/__init__.py
+    # adds a NullHandler (library style), which doesn't count as set up.
+    if any(not isinstance(h, logging.NullHandler) for h in log.handlers):
         return
     try:
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -505,7 +518,9 @@ def run(files: list[Path], target: str | None, workers: int = DEFAULT_WORKERS,
                     log.info("%s cancelled in its dialog", chosen.name)
                     return 1
                 files, params = answer
-        log.info("%s on %d file(s) with %s", chosen.name, len(files), params)
+        secret = {p.name for p in chosen.params if p.kind == "password"}
+        shown = {k: ("(hidden)" if k in secret and v else v) for k, v in (params or {}).items()}
+        log.info("%s on %d file(s) with %s", chosen.name, len(files), shown)
         return Batch(files, chosen.name, workers, tool=chosen, params=params).start()
     if not target:
         return _describe(files)

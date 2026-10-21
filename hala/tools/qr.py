@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import formats as f
-from ..engines import images
+from ..engines import images, pdf
 from ..runner import Context, ConversionError
 from . import Params, Tool
 
@@ -17,6 +17,8 @@ def read(ctx: Context, inputs: list[Path], params: Params) -> Path:
     src = inputs[0]
     pictures: list[Path] = [src]
     if f.ext_of(src) == "pdf":
+        pdf.require_unlocked(src)
+        pdf.check_render(src, QR_RENDER_DPI, "png", ctx.workdir)
         pages = ctx.workdir / "pages"
         pages.mkdir()
         ctx.run(["pdftoppm", "-png", "-r", str(QR_RENDER_DPI), src, pages / "p"])

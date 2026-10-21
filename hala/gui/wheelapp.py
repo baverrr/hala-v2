@@ -30,32 +30,46 @@ URI_LIST = "text/uri-list"
 log = logging.getLogger("hala")
 
 
-def parse_uri_list(text: str) -> list[Path]:
+def parse_uri_list(text: str, skipped: list[str] | None = None) -> list[Path]:
     """Local files and folders named in a text/uri-list (or Klipper's space-separated URLs);
-    anything else, and paths that don't exist, are dropped."""
+    anything else, and paths that don't exist, are dropped. URLs of other computers (smb://,
+    sftp://, https://...) are added to skipped."""
     found: list[Path] = []
     for token in text.split():
         if token.startswith("#"):
             continue
         url = urlparse(token)
         if url.scheme != "file" or url.netloc not in ("", "localhost"):
+            if url.scheme and skipped is not None:  # plain words (Klipper's text) aren't URLs
+                skipped.append(token)
             continue
         path = Path(unquote(url.path))
-        if path.is_absolute() and path.exists() and path not in found:
+        try:
+            usable = path.is_absolute() and path.exists()
+        except (OSError, ValueError):  # "%00" in the name, or a name too long
+            usable = False
+        if usable and path not in found:
             found.append(path)
     return found
 
 
-def clipboard_files() -> list[Path]:
-    """The files last copied (Ctrl+C in Dolphin and most file managers), if any."""
+def clipboard_files(skipped: list[str] | None = None) -> list[Path]:
+    """The files last copied (Ctrl+C in Dolphin and most file managers), if any; copied
+    files of other computers go to skipped."""
     if shutil.which("wl-paste"):
         try:
-            types = subprocess.run(["wl-paste", "--list-types"], capture_output=True,
-                                   text=True, timeout=3).stdout.split()
-            if URI_LIST in types:
-                return parse_uri_list(subprocess.run(
-                    ["wl-paste", "--no-newline", "--type", URI_LIST], capture_output=True,
-                    text=True, timeout=3).stdout)
+            listed = subprocess.run(["wl-paste", "--list-types"], capture_output=True,
+                                    text=True, timeout=3)
+            if listed.returncode != 0:
+                log.warning("wl-paste --list-types exited %d: %s", listed.returncode,
+                            listed.stderr.strip())
+            if URI_LIST in listed.stdout.split():
+                pasted = subprocess.run(["wl-paste", "--no-newline", "--type", URI_LIST],
+                                        capture_output=True, text=True, timeout=3)
+                if pasted.returncode != 0:
+                    log.warning("wl-paste exited %d: %s", pasted.returncode,
+                                pasted.stderr.strip())
+                return parse_uri_list(pasted.stdout, skipped)
         except (OSError, subprocess.TimeoutExpired) as exc:
             log.warning("wl-paste failed: %s", exc)
     try:
@@ -70,19 +84,25 @@ def clipboard_files() -> list[Path]:
     except GLib.Error as exc:  # no Klipper or no session bus: no files, then
         log.warning("couldn't read the clipboard through Klipper: %s", exc.message)
         return []
-    return parse_uri_list(reply.unpack()[0])
+    return parse_uri_list(reply.unpack()[0], skipped)
 
 
 def main(files: list[Path], from_clipboard: bool = False) -> int:
+    remote: list[str] = []
     if from_clipboard:
-        files = clipboard_files()
+        files = clipboard_files(remote)
     files = [p.expanduser().absolute() for p in files]
     if not files:
         from ..desktop import notify
 
-        notify("Nothing to convert", "Copy files first (Ctrl+C in Dolphin), then press the "
-               "shortcut again." if from_clipboard else "No files were given.",
-               "dialog-information")
+        if remote:
+            body = (f"Only files on this computer can be used ({len(remote)} network "
+                    f"file{'s' * (len(remote) != 1)} skipped).")
+        elif from_clipboard:
+            body = "Copy files first (Ctrl+C in Dolphin), then press the shortcut again."
+        else:
+            body = "No files were given."
+        notify("Nothing to convert", body, "dialog-information")
         return 1
     app = QApplication.instance() or QApplication(sys.argv[:1])
     assert isinstance(app, QApplication)

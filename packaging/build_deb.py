@@ -1,17 +1,22 @@
 """Build dist/hala_VERSION_all.deb: Hala as an installed desktop application.
 
-    .venv/bin/python packaging/build_deb.py            # dist/hala_0.1.0+202610211245_all.deb
+    .venv/bin/python packaging/build_deb.py            # dist/hala_VERSION+202610211245_all.deb
     .venv/bin/python packaging/build_deb.py --install  # ...and install it (sudo -A)
-    .venv/bin/python packaging/build_deb.py --release  # dist/hala_0.1.0_all.deb
+    .venv/bin/python packaging/build_deb.py --release  # dist/hala_VERSION_all.deb (e.g. 0.4.0)
 
 Builds other than --release get the build time after the version, so each one is newer than
 the last and apt upgrades to it; older .debs in dist/ are removed.
 
 It installs the hala package for the system Python 3 (PySide6 and GLib come from apt, as in
-development), /usr/bin/hala, the application menu entry, the icon and every Dolphin menu
-(system-wide, so each account on the machine gets them). The converters are apt
-dependencies; LibreOffice and pandoc are recommended rather than required, as they're big.
+development), /usr/bin/hala, the application menu entry, the hala:// link handler, the icon,
+the wheel's global shortcut (/usr/share/kglobalaccel) and every Dolphin menu (system-wide, so
+each account on the machine gets them). The converters are apt dependencies; the rest is
+recommended rather than required (RECOMMENDS: LibreOffice, pandoc, WeasyPrint, the Carlito
+and Caladea fonts, wl-clipboard, KDE Connect, kdialog, Dolphin).
 No maintainer scripts: dpkg's triggers refresh the icon and application caches.
+
+Only files git knows about are packaged: the build stops if hala/ holds untracked or ignored
+files (scratch notes, test files), apart from Python's caches. `git add` new modules first.
 """
 
 from __future__ import annotations
@@ -60,8 +65,9 @@ Local file converter for KDE Plasma
  drag files to the screen edge and pick a format on the wheel, or right-click
  them in Dolphin (Convert to, Hala tools). Tools compress to a size, strip
  metadata, merge and split PDFs, read QR codes, and trim, split, join or
- normalize media. A floating shelf holds files, and pictures can be cropped,
- annotated and redacted. Nothing is uploaded anywhere."""
+ normalize media, and unlock password-protected PDFs. A floating shelf holds
+ files; pictures can be cropped, annotated and redacted, and PDFs annotated
+ and redacted. Nothing is uploaded anywhere."""
 LAUNCHER = """#!/usr/bin/python3 -I
 import sys
 
@@ -126,7 +132,29 @@ def stage(root: Path, version: str = __version__) -> None:
         f"Recommends: {', '.join(RECOMMENDS)}\nDescription: {DESCRIPTION}\n")
 
 
+def stray_files(root: Path = ROOT) -> list[str]:
+    """Untracked or ignored files under root/hala that would end up in the package (Python's
+    caches aside). Empty outside a git checkout, where there's nothing to compare with."""
+    try:
+        status = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--ignored",
+             "--untracked-files=all", "--", "hala"],
+            capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    found = []
+    for line in status.splitlines():
+        if line[:2] in ("??", "!!"):
+            path = line[3:]
+            if "__pycache__/" not in path and not path.endswith(".pyc"):
+                found.append(path)
+    return found
+
+
 def build(out_dir: Path, version: str = __version__) -> Path:
+    if stray := stray_files():
+        sys.exit("not packaging files git doesn't track (commit, `git add` or remove them):\n  "
+                 + "\n  ".join(stray))
     out_dir.mkdir(parents=True, exist_ok=True)
     for old in out_dir.glob("hala_*_all.deb"):
         old.unlink()

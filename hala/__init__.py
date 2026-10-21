@@ -3,7 +3,7 @@
 import logging
 import sys
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 # How hala starts itself again (the drop zone and shelf hand work to a new process). -I keeps
 # the current folder off the import path: a folder there named "hala" mustn't stand in for us.
 SELF = [sys.executable, "-I", "-m", "hala.cli"]

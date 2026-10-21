@@ -55,6 +55,13 @@ Tests: `tests/test_security.py` (13), `tests/test_packaging.py`.
 
 | Change | Risk considered | Handling |
 |---|---|---|
-| PDF redaction in the editor | A "redaction" that only draws a box leaves the text under it in the file; hidden data elsewhere (metadata, attachments, form data, bookmarks) survives. | Edited pages are rendered by poppler and written back as pictures only (lossless), so nothing under a box remains; the copy is assembled with `qpdf --empty`, so document-level metadata, outlines, attachments and forms are dropped. Unedited pages are kept as they were, and the README/disclaimer say so. Tested: the redacted page's text is gone, the others remain, sizes and rotation match. |
+| PDF redaction in the editor | A "redaction" that only draws a box leaves the text under it in the file; hidden data elsewhere (metadata, attachments, form data, bookmarks) survives. | Edited pages are rendered by poppler and written back as pictures only (lossless), so nothing under a box remains; the copy is assembled with `qpdf --empty`, so document-level metadata, outlines and embedded files are dropped; form fields and annotations on unedited pages remain (corrected in the 0.4 review). Unedited pages are kept as they were, and the README/disclaimer say so. Tested: the redacted page's text is gone, the others remain, sizes and rotation match. |
 | Many PDF pages | Each rendered page is ~9 MB in memory. | Pages that weren't edited are dropped when you move on, and re-rendered if shown again; pages over the 500-megapixel limit are refused. |
 | Compress: lossless PDF repack | qpdf parses the untrusted PDF. | Same tool and paths as merge/split; the Ghostscript steps run on qpdf's output with `-dSAFER`. |
+
+## Passwords and the print style (0.4.0)
+
+| Change | Risk considered | Handling |
+|---|---|---|
+| Unlock PDF tool, password prompt in the editor | A password on a command line is visible to every user (`ps`, `/proc/*/cmdline`); in a log it outlives the job; a file holding it lingers. | It goes to qpdf on standard input (`--password-file=-`), never in argv (tested) or a file; qpdf's AppArmor profile wouldn't read a password file anyway. The dialog field is masked and kept exactly as typed; `hala run` logs it as "(hidden)" (tested); the CLI asks with getpass when `--password` is left out and warns that the flag is visible to others. The unlocked working copy lives in the editor's 0700 scratch folder and is deleted with it (tested). |
+| Print stylesheet for markup PDFs | A stylesheet could fetch fonts or images. | It's Hala's own file, loaded as a string with the same confined fetcher; it names only local system fonts. |

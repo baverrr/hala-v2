@@ -27,7 +27,9 @@ Engine = Callable[[Context, list[Path], Params], Path]
 class Param:
     name: str
     label: str
-    kind: str  # "float", "int", "str", "bool", "choice" or "time" (seconds, typed as 1:23.5)
+    # "float", "int", "str", "password" (a str, masked and never logged), "bool", "choice"
+    # or "time" (seconds, typed as 1:23.5)
+    kind: str
     default: Any = None
     help: str = ""
     choices: tuple[str, ...] = ()
@@ -162,7 +164,8 @@ def run_tool(tool: Tool, inputs: list[Path], params: Params | None = None, *,
 def _registry() -> dict[str, Tool]:
     from . import compress, edit_media, metadata, pdftools, qr, zipping
 
-    tools = [compress.TOOL, metadata.TOOL, pdftools.MERGE, pdftools.SPLIT, qr.TOOL,
+    tools = [compress.TOOL, metadata.TOOL, pdftools.MERGE, pdftools.SPLIT, pdftools.UNLOCK,
+             qr.TOOL,
              edit_media.NORMALIZE, edit_media.TRIM, edit_media.SPLIT, edit_media.JOIN,
              zipping.TOOL]
     return {t.name: t for t in tools}

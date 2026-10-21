@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QSpinBox,
@@ -59,6 +60,7 @@ from ..editing import (
     save_exts,
     save_pdf_copy,
 )
+from ..engines.pdf import PasswordNeeded, WrongPassword
 from ..runner import ConversionError
 
 LOG = Path.home() / ".cache" / "hala" / "editor.log"
@@ -310,12 +312,17 @@ class Canvas(QWidget):
 
 
 class Editor(QMainWindow):
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, password: str | None = None):
         super().__init__()
         self.path = path
-        self.pdf = PdfPages(path) if f.ext_of(path) == "pdf" else None
+        self.pdf = PdfPages(path, password) if f.ext_of(path) == "pdf" else None
         self.page_index = 0
-        self.doc = self.pdf.page(0) if self.pdf else Document(load_image(path))
+        try:
+            self.doc = self.pdf.page(0) if self.pdf else Document(load_image(path))
+        except BaseException:
+            if self.pdf:
+                self.pdf.close()  # its scratch folder may hold an unlocked copy
+            raise
         self.canvas = Canvas(self.doc)
         self.setCentralWidget(self.canvas)
         self.setWindowIcon(QIcon.fromTheme("hala"))
@@ -511,7 +518,9 @@ class Editor(QMainWindow):
             QMessageBox.information(self, "Saved under another name",
                                     f"{dest.name} already exists, so the edit was saved as "
                                     f"{out.name}. Hala never overwrites files.")
-        self.statusBar().showMessage(f"Saved {out}", 8000)
+        note = (" (it opens without a password; the original keeps its own)"
+                if self.pdf is not None and self.pdf.unlocked else "")
+        self.statusBar().showMessage(f"Saved {out}{note}", 8000)
         return out
 
     def save(self) -> bool:
@@ -604,6 +613,25 @@ def _excepthook(kind: type[BaseException], exc: BaseException, tb: TracebackType
         _excepthook.showing = False  # type: ignore[attr-defined]
 
 
+def _open(path: Path) -> Editor | None:
+    """An editor for path; a password-protected PDF's password is asked for (again, if it
+    was wrong). None if that question is cancelled."""
+    try:
+        return Editor(path)
+    except PasswordNeeded:
+        pass
+    prompt = f"{path.name} is password-protected.\n\nPassword:"
+    while True:
+        password, ok = QInputDialog.getText(None, "Password", prompt,
+                                            QLineEdit.EchoMode.Password)
+        if not ok:
+            return None
+        try:
+            return Editor(path, password)
+        except WrongPassword:
+            prompt = f"That password doesn't open {path.name}. Try again:"
+
+
 def main(files: list[Path]) -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("hala")
@@ -615,7 +643,9 @@ def main(files: list[Path]) -> int:
             problems.append(f"{path.name}: not a picture or PDF Hala can edit")
             continue
         try:
-            window = Editor(path)
+            window = _open(path)
+            if window is None:  # a password was asked for and cancelled
+                continue
         except ConversionError as exc:
             problems.append(str(exc))
             continue

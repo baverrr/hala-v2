@@ -9,7 +9,6 @@ or a thumbnail.
 from __future__ import annotations
 
 import math
-import re
 import subprocess
 import tempfile
 import zlib
@@ -34,7 +33,7 @@ from PySide6.QtGui import (
 
 from . import formats as f
 from .convert import _place
-from .engines import images
+from .engines import images, pdf
 from .engines.images import check_picture
 from .limits import check_pixels
 from .runner import ConversionError
@@ -347,12 +346,9 @@ def save_copy(image: QImage, src: Path, *, dest: Path | None = None) -> Path:
 # --- PDFs -----------------------------------------------------------------------------------
 
 # Pages are rendered, and edited ones written back, at the resolution images.images_to_pdf
-# uses, so a flattened page keeps its size.
+# uses; a flattened page gets the original page's exact size in points (see _page_pdf).
 PDF_DPI = images.PDF_DPI
 PDF_TIMEOUT_S = 300
-# pdfinfo -f/-l lines: "Page    1 size: 595 x 842 pts (A4)" and "Page    1 rot:  90"
-PAGE_LINE = re.compile(r"^Page\s+(?P<page>\d+)\s+(?P<what>size|rot):\s+(?P<w>[\d.]+)"
-                       r"(?:\s+x\s+(?P<h>[\d.]+))?")
 
 
 class PdfPages:
@@ -362,20 +358,53 @@ class PdfPages:
     under a redaction is really gone from them; the rest are kept exactly as they were.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, password: str | None = None):
         self.path = path
-        self.sizes = _page_sizes(path)  # (width, height) in points, as shown (rotation applied)
-        self.count = len(self.sizes)
+        # Private (0700): rendered pages, and the unlocked copy of a password-protected PDF.
         self._tmp = tempfile.TemporaryDirectory(prefix="hala-pdf-")
+        self.source = path  # what's read: the file itself, or its unlocked copy
+        try:
+            self.unlocked = pdf.known_encryption(path) == pdf.NEEDS_PASSWORD
+            if self.unlocked:
+                self.source = self._unlock(password)
+            # (width, height) in points, as shown
+            self.sizes = pdf.page_sizes(self.source, path.name)
+        except BaseException:
+            self._tmp.cleanup()
+            raise
+        self.count = len(self.sizes)
         self._docs: dict[int, Document] = {}
+
+    def _unlock(self, password: str | None) -> Path:
+        if password is None:
+            raise pdf.PasswordNeeded(f"{self.path.name} is password-protected")
+        out = Path(self._tmp.name) / "unlocked.pdf"
+        try:
+            result = subprocess.run(pdf.unlock_command(self.path, out), input=password,
+                                    capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
+        except FileNotFoundError:
+            raise ConversionError("opening a password-protected PDF needs qpdf "
+                                  "(apt install qpdf)") from None
+        except subprocess.TimeoutExpired:
+            raise ConversionError(f"unlocking {self.path.name} took too long") from None
+        if pdf.wrong_password(result.stderr):
+            raise pdf.WrongPassword(f"wrong password for {self.path.name}")
+        if result.returncode not in (0, 3) or not out.exists():
+            detail = result.stderr.strip().splitlines()
+            raise ConversionError(f"couldn't unlock {self.path.name}"
+                                  + (f" ({detail[-1]})" if detail else ""))
+        return out
 
     def page(self, index: int) -> Document:
         if not 0 <= index < self.count:
             raise IndexError(index)
         if index not in self._docs:
+            # Refused before it's drawn: pdftoppm would need gigabytes for a huge page.
+            width, height = pdf.page_pixels(self.sizes[index], PDF_DPI)
+            check_pixels(width, height, f"page {index + 1} of {self.path.name}")
             stem = Path(self._tmp.name) / f"page{index + 1}"
-            _poppler(["pdftoppm", "-png", "-r", str(PDF_DPI), "-f", str(index + 1),
-                      "-l", str(index + 1), "-singlefile", str(self.path), str(stem)],
+            pdf.poppler(["pdftoppm", "-png", "-r", str(PDF_DPI), "-f", str(index + 1),
+                      "-l", str(index + 1), "-singlefile", str(self.source), str(stem)],
                      f"couldn't show page {index + 1} of {self.path.name}")
             self._docs[index] = Document(load_image(stem.with_suffix(".png")))
         return self._docs[index]
@@ -406,43 +435,6 @@ class PdfPages:
         self._tmp.cleanup()
 
 
-def _poppler(cmd: list[str], failure: str) -> str:
-    try:
-        return subprocess.run(cmd, check=True, capture_output=True, text=True,
-                              timeout=PDF_TIMEOUT_S).stdout
-    except FileNotFoundError:
-        raise ConversionError(f"{failure}: poppler isn't installed "
-                              "(apt install poppler-utils)") from None
-    except subprocess.TimeoutExpired:
-        raise ConversionError(f"{failure}: it took too long") from None
-    except subprocess.CalledProcessError as exc:
-        detail = (exc.stderr or "").strip().splitlines()
-        raise ConversionError(failure + (f" ({detail[-1]})" if detail else "")) from None
-
-
-def _page_sizes(path: Path) -> list[tuple[float, float]]:
-    """Each page's size in points as it's displayed: a page rotated by 90 or 270 degrees has
-    its width and height swapped, like the picture pdftoppm renders of it."""
-    failure = f"can't open {path.name} as a PDF"
-    info = _poppler(["pdfinfo", str(path)], failure)
-    count = next((int(fs[1]) for line in info.splitlines() if (fs := line.split())[:1]
-                  == ["Pages:"] and len(fs) > 1 and fs[1].isdigit()), 0)
-    if count < 1:
-        raise ConversionError(f"{path.name} has no pages")
-    info = _poppler(["pdfinfo", "-f", "1", "-l", str(count), str(path)], failure)
-    sizes: dict[int, tuple[float, float]] = {}
-    turned: set[int] = set()
-    for line in info.splitlines():
-        m = PAGE_LINE.match(line)
-        if m and m["what"] == "size":
-            sizes[int(m["page"])] = (float(m["w"]), float(m["h"]))
-        elif m and m["what"] == "rot" and int(float(m["w"])) % 180 == 90:
-            turned.add(int(m["page"]))
-    if len(sizes) != count:
-        raise ConversionError(f"{failure} (couldn't read its page sizes)")
-    return [(h, w) if n in turned else (w, h) for n, (w, h) in sorted(sizes.items())]
-
-
 def _page_pdf(image: QImage, size: tuple[float, float]) -> bytes:
     """A one-page PDF of the given size (points) holding just this picture, lossless (Flate)."""
     rgb = _pixels_only(image, "jpg").convertToFormat(QImage.Format.Format_RGB888)
@@ -456,12 +448,14 @@ def _page_pdf(image: QImage, size: tuple[float, float]) -> bytes:
 def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
     """Write "name (edited).pdf" beside the original (or dest), never overwriting: edited pages
     flattened to pictures, the others as they were. It's built from an empty PDF, so the
-    original's metadata, bookmarks, attachments and form data don't come along."""
-    src = pages.path
+    original's document metadata, bookmarks and attached files don't come along, nor its
+    password: a protected PDF's edited copy opens without one. Untouched pages keep their
+    links, annotations and form fields (with their values)."""
+    src = pages.source
     if dest is not None and f.ext_of(dest) != "pdf":
         raise ConversionError("a PDF can only be saved as a PDF")
-    parent = dest.parent if dest else src.parent
-    name = dest.name if dest else f"{f.stem_of(src)} (edited).pdf"
+    parent = dest.parent if dest else pages.path.parent
+    name = dest.name if dest else f"{f.stem_of(pages.path)} (edited).pdf"
     edited = set(pages.edited_pages())
     try:
         with tempfile.TemporaryDirectory(prefix=".hala-edit-", dir=parent) as tmp:
@@ -479,15 +473,18 @@ def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
                     i += 1
                 spec += [str(src), f"{start + 1}-{i}"]
             out = Path(tmp) / "out.pdf"
-            result = subprocess.run(["qpdf", "--empty", "--pages", *spec, "--", str(out)],
-                                    capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
+            try:
+                result = subprocess.run(["qpdf", "--empty", "--pages", *spec, "--", str(out)],
+                                        capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
+            except FileNotFoundError as exc:
+                if exc.filename not in ("qpdf", None):
+                    raise
+                raise ConversionError("saving a PDF needs qpdf (apt install qpdf)") from None
             if result.returncode not in (0, 3) or not out.exists():  # 3: warnings only
                 detail = result.stderr.strip().splitlines()
                 raise ConversionError("couldn't write the PDF"
                                       + (f" ({detail[-1]})" if detail else ""))
             return _place(out, parent, name)
-    except FileNotFoundError:
-        raise ConversionError("saving a PDF needs qpdf (apt install qpdf)") from None
     except subprocess.TimeoutExpired:
         raise ConversionError("writing the PDF took too long") from None
     except OSError as exc:

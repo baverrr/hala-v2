@@ -22,6 +22,12 @@ DEFAULT_WORKERS = 2
 log = logging.getLogger("hala")
 
 
+def clean_note(text: str) -> str:
+    """A note for display: notes quote names from inside documents, so control characters
+    (terminal escape sequences, line breaks) become "?"."""
+    return "".join("?" if ord(ch) < 0x20 or ord(ch) == 0x7F else ch for ch in text)
+
+
 class Status(enum.Enum):
     QUEUED = "queued"
     RUNNING = "running"
@@ -50,7 +56,8 @@ class Job:
     # in one job, with src being the first.
     tool: bool = False
     inputs: list[Path] = field(default_factory=list)
-    params: dict[str, Any] = field(default_factory=dict)
+    # repr=False: a tool's parameters can hold a password (Unlock PDF).
+    params: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def cancel(self) -> None:
         self.cancel_event.set()

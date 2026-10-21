@@ -11,9 +11,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import urlparse
 
 from ..formats import ext_of
-from ..runner import Context, ConversionError
+from ..runner import Cancelled, Context, ConversionError
 
 # LibreOffice gets its own profiles so it never attaches to (or is blocked by) a LibreOffice
 # window the user has open. A profile serves one conversion at a time, so there is one per
@@ -131,12 +132,11 @@ URI_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     if dst_ext == "pdf" and importlib.util.find_spec("weasyprint") is None:
         # No WeasyPrint (and pandoc's default PDF route needs LaTeX): DOCX, then LibreOffice.
-        docx = pandoc(ctx, src, "docx")
-        return office(ctx, docx, "pdf")
+        return _through_office(ctx, src)
     # Pass 1 parses in pandoc's sandbox, so include directives (".. include::", \input,
     # #+INCLUDE) can't read other files. Pass 2 writes from the checked syntax tree; only
-    # pictures inside the document's own folder may be embedded, never other local files
-    # (~/.ssh/...) or URLs.
+    # pictures inside the document's own folder (not in hidden folders there) may be
+    # embedded, never other local files (~/.ssh/...) or URLs.
     media = ctx.workdir / "media"
     tree = json.loads(ctx.run(["pandoc", "--sandbox", src, "-t", "json",
                                f"--extract-media={media}"], cwd=ctx.workdir))
@@ -144,6 +144,10 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     meta = tree.get("meta", {})
     for key in FILE_METADATA:
         meta.pop(key, None)
+    if dst_ext == "pdf":
+        # Leave out pandoc's screen layout (50px body padding, 36em width, its font size):
+        # Hala's print stylesheet sets the page.
+        meta["document-css"] = {"t": "MetaBool", "c": False}
     left_out: list[str] = []
 
     def allowed(target: str) -> bool:
@@ -162,7 +166,7 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
                  f"the document's folder: {shown}{more}")
     # Named after the source: a standalone HTML page without a title is titled by this name.
     parsed = ctx.workdir / "parsed" / f"{src.stem}.json"
-    parsed.parent.mkdir()
+    parsed.parent.mkdir(exist_ok=True)  # a second pass (the LibreOffice fallback) reuses it
     parsed.write_text(json.dumps(tree), encoding="utf-8")
     # A PDF is made from standalone HTML by WeasyPrint, confined to the same folders.
     write_ext = "html" if dst_ext == "pdf" else dst_ext
@@ -178,13 +182,37 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     if dst_ext != "pdf":
         return out
     pdf = ctx.workdir / "out.pdf"
-    ctx.run([sys.executable, "-I", "-m", "hala.engines.weasy_confined", out, pdf, src.parent,
-             *roots, ctx.workdir], cwd=ctx.workdir, timeout=SOFFICE_TIMEOUT_S)
+    try:
+        printed = ctx.run([sys.executable, "-I", "-m", "hala.engines.weasy_confined", out, pdf,
+                           src.parent, *roots, ctx.workdir], cwd=ctx.workdir,
+                          timeout=SOFFICE_TIMEOUT_S)
+    except Cancelled:
+        raise
+    except ConversionError as exc:
+        # Installed but broken (e.g. its Pango doesn't match) or crashed on this document:
+        # the LibreOffice route still works.
+        reason = str(exc).strip().splitlines()[-1] if str(exc).strip() else "no reason given"
+        ctx.note(f"WeasyPrint failed ({reason[:120]}); made through LibreOffice instead")
+        return _through_office(ctx, src)
+    unloaded = [line.removeprefix("left-out\t") for line in printed.splitlines()
+                if line.startswith("left-out\t")]
+    if unloaded:
+        shown = ", ".join(PurePosixPath(urlparse(u).path).name or u for u in unloaded[:3])
+        more = f" and {len(unloaded) - 3} more" if len(unloaded) > 3 else ""
+        ctx.note(f"left out {len(unloaded)} picture{'s' * (len(unloaded) != 1)} WeasyPrint "
+                 f"couldn't load: {shown}{more}")
     return pdf
 
 
+def _through_office(ctx: Context, src: Path) -> Path:
+    """A PDF made through DOCX and LibreOffice (no WeasyPrint)."""
+    docx = pandoc(ctx, src, "docx")
+    return office(ctx, docx, "pdf")
+
+
 def _is_local(target: str, base: Path, roots: tuple[Path, ...]) -> bool:
-    """Whether a picture reference stays inside one of roots (data: URIs carry their own)."""
+    """Whether a picture reference stays inside one of roots, outside hidden folders there
+    (a document in the home folder mustn't reach ~/.ssh); data: URIs carry their own."""
     if target.startswith(("data:", "#")) or not target:
         return True
     if URI_SCHEME.match(target) or target.startswith("~"):
@@ -193,12 +221,15 @@ def _is_local(target: str, base: Path, roots: tuple[Path, ...]) -> bool:
         where = (base / target.split("#")[0].split("?")[0]).resolve()
     except (OSError, ValueError):
         return False
-    return any(where.is_relative_to(root) for root in roots)
+    return any(where.is_relative_to(root)
+               and not any(part.startswith(".") for part in where.relative_to(root).parts)
+               for root in roots)
 
 
 def _confine(node: Any, allowed: Callable[[str], bool], drop_raw: bool = False) -> Any:
     """Replace pictures and raw HTML that point outside allowed with their alt text/nothing;
-    with drop_raw, all raw HTML goes."""
+    with drop_raw, all raw HTML goes. Links lose their attributes: rel=attachment would make
+    WeasyPrint embed the linked file in the PDF."""
     if isinstance(node, list):
         for i, item in enumerate(node):
             node[i] = _confine(item, allowed, drop_raw)
@@ -208,6 +239,9 @@ def _confine(node: Any, allowed: Callable[[str], bool], drop_raw: bool = False) 
             attr, alt, (target, _title) = node["c"]
             if not allowed(target):
                 return {"t": "Span", "c": [attr, _confine(alt, allowed)]}
+        elif kind == "Link":
+            ident = node["c"][0][0]
+            node["c"][0] = [ident, [], []]
         elif kind in ("RawInline", "RawBlock"):
             sources = ["".join(m) for m in RAW_SOURCE.findall(node["c"][1])]
             if drop_raw or not all(allowed(s) for s in sources):
