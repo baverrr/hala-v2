@@ -87,7 +87,7 @@ def test_wheel_with_bubbles_fits_on_screen() -> None:
 def test_which_actions_apply(files: dict[str, Path]) -> None:
     assert actions_for([files["a"]]) == ["shelf", "phone", "copy", "move"]
     assert "zip" in actions_for([files["a"], files["b"]])  # one archive for several
-    assert "phone" not in actions_for([files["folder"]])  # KDE Connect shares files only
+    assert "phone" in actions_for([files["folder"]])  # zipped before KDE Connect sends it
     assert actions_for([]) == []
 
 
@@ -224,8 +224,12 @@ def test_phones_and_sending(files: dict[str, Path], tmp_path: Path,
     sent = log.read_text().splitlines()[1:]
     assert sent == [f"--device abc123 --share {files['a']}",
                     f"--device abc123 --share {files['b']}"]
-    assert actions.send_to_phone([files["folder"]], "abc123") == [
-        (files["folder"], "only files can be sent, not folders")]
+    monkeypatch.setattr(actions, "PHONE_ZIPS", tmp_path / "phone")
+    assert actions.send_to_phone([files["folder"]], "abc123") == []  # zipped, then sent
+    zipped = tmp_path / "phone" / "folder.zip"
+    assert log.read_text().splitlines()[-1] == f"--device abc123 --share {zipped}"
+    with zipfile.ZipFile(zipped) as z:
+        assert "folder/inner.txt" in z.namelist()
 
 
 def test_send_failure_is_explained(files: dict[str, Path], tmp_path: Path,
@@ -647,8 +651,9 @@ def test_run_action_phone_reports_partial_sends(files: dict[str, Path], tmp_path
     fake_kdeconnect(tmp_path, monkeypatch, "abc One\n")
     shown: list = []
     monkeypatch.setattr(desktop, "notify", lambda *a, **k: shown.append(a))
-    assert desktop.run_action("phone", [files["a"], files["folder"]]) == 1
-    assert shown[0][0] == "Sending 1 of 2 files to One" and "folder" in shown[0][1]
+    gone = files["dest"] / "ghost.txt"  # deleted between choosing and sending
+    assert desktop.run_action("phone", [files["a"], gone]) == 1
+    assert shown[0][0] == "Sending 1 of 2 files to One" and "ghost.txt" in shown[0][1]
 
 
 def test_run_action_routes_zip_shelf_and_cancelled_pickers(

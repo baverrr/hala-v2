@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 from .. import formats as f
+from .. import limits
 from ..registry import ANY
 from ..runner import Context
 from . import Params, Tool
@@ -48,6 +49,11 @@ def pack(ctx: Context, inputs: list[Path], _params: Params) -> Path:
     # Names relative to the deepest common folder: "a.jpg", "sub/b.jpg", not absolute paths.
     base = Path(os.path.commonpath([p.parent for p in inputs]))
     entries = [e for p in inputs for e in _entries(p, base)]
+    for path, name in entries:  # no zip bombs: sparse files would unpack to their full size
+        if not name.endswith("/"):
+            limits.check_not_sparse(path)
+    total = sum(path.lstat().st_size for path, name in entries
+                if not name.endswith("/") and not path.is_symlink())
     out = ctx.workdir / "out.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for i, (path, name) in enumerate(entries, 1):
@@ -57,6 +63,7 @@ def pack(ctx: Context, inputs: list[Path], _params: Params) -> Path:
             else:
                 archive.write(path, name)
             ctx.progress(i / len(entries))
+    limits.check_packed(total, out)
     return out
 
 

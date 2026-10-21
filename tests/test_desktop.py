@@ -118,7 +118,7 @@ def test_low_weight_globs_ignored() -> None:
 def test_every_menu_action_is_a_real_route(menus: dict) -> None:
     exts_by_menu = {f"hala-{e.replace('.', '_')}.desktop": e
                     for e in {m["Desktop Entry"]["X-Hala-Menu"] for m in menus.values()}
-                    if not e.startswith("tool-") and e not in ("edit", "shelf")}
+                    if not e.startswith("tool-") and e not in ("edit", "shelf", "wheel")}
     for name, ext in exts_by_menu.items():
         if name not in menus:
             continue

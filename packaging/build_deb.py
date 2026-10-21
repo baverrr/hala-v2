@@ -29,7 +29,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from hala import __version__  # noqa: E402
-from hala.servicemenus import APP_ENTRY, ICON, build_menus  # noqa: E402
+from hala.servicemenus import (  # noqa: E402
+    APP_ENTRY,
+    DEFAULT_SHORTCUT,
+    ICON,
+    LINK_ENTRY,
+    SHORTCUT_ENTRY,
+    SHORTCUT_FILE,
+    build_menus,
+)
 
 EXE = "/usr/bin/hala"
 MAINTAINER = "Jeff Beaver <342259467+baverrr@users.noreply.github.com>"
@@ -40,7 +48,11 @@ DEPENDS = [
     "ffmpeg", "libvips-tools", "poppler-utils", "7zip", "qpdf", "ghostscript",
     "libimage-exiftool-perl", "zbar-tools", "zstd",
 ]
-RECOMMENDS = ["pandoc", "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
+# WeasyPrint turns Markdown/HTML/e-books into PDF directly (else they go through LibreOffice).
+# Carlito and Caladea have the same metrics as Calibri and Cambria (Office's default fonts), so
+# Word and PowerPoint files keep their line breaks and page count in LibreOffice.
+RECOMMENDS = ["wl-clipboard", "pandoc", "weasyprint", "libreoffice-writer", "libreoffice-calc",
+              "libreoffice-impress", "fonts-crosextra-carlito", "fonts-crosextra-caladea",
               "kdeconnect", "kdialog", "dolphin"]
 DESCRIPTION = """\
 Local file converter for KDE Plasma
@@ -71,9 +83,14 @@ def stage(root: Path, version: str = __version__) -> None:
     apps = root / "usr/share/applications"
     apps.mkdir(parents=True)
     (apps / "hala.desktop").write_text(APP_ENTRY.format(exe=EXE))
+    (apps / "hala-link.desktop").write_text(LINK_ENTRY.format(exe=EXE))
     icons = root / "usr/share/icons/hicolor/scalable/apps"
     icons.mkdir(parents=True)
     shutil.copyfile(ICON, icons / "hala.svg")
+    shortcuts = root / "usr/share/kglobalaccel"
+    shortcuts.mkdir(parents=True)
+    (shortcuts / SHORTCUT_FILE).write_text(
+        SHORTCUT_ENTRY.format(exe=EXE, shortcut=DEFAULT_SHORTCUT))
     menus = root / "usr/share/kio/servicemenus"
     menus.mkdir(parents=True)
     for name, text in build_menus(EXE).items():

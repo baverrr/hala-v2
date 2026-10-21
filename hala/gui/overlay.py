@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QDragEnterEvent,
     QDragMoveEvent,
     QDropEvent,
+    QEnterEvent,
     QFont,
     QFontMetricsF,
     QIcon,
@@ -111,6 +112,10 @@ class Overlay(QWidget):
         self.wheel: Wheel | None = None
         self.hovered: str | None = None
         self.click_mode = False
+        # For a wheel-only process (`hala wheel`): told when this overlay's wheel is placed,
+        # and when it closes.
+        self.on_place: Callable[[Overlay], None] | None = None
+        self.on_close: Callable[[Overlay], None] | None = None
         self.setWindowTitle("Hala")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAcceptDrops(True)
@@ -151,10 +156,14 @@ class Overlay(QWidget):
         self.files, self.wheel, self.hovered = [], None, None
         if target is not None and files:
             self.launch(target, files)
+        if self.on_close is not None:
+            self.on_close(self)
 
     def _place(self, at: QPointF) -> None:
         self.wheel = place(self._targets, at.x(), at.y(), self.width(), self.height(),
                            tools=self._tools, actions=self._actions)
+        if self.on_place is not None:
+            self.on_place(self)
 
     def _hover(self, at: QPointF) -> None:
         if self.wheel is None:
@@ -195,6 +204,13 @@ class Overlay(QWidget):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self.click_mode:
             self._hover(event.position())
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        # Opened by a click or a shortcut: the wheel appears where the pointer comes in (on
+        # Wayland that's the first time the pointer's position is known at all).
+        if self.click_mode and self.wheel is None:
+            self._place(event.position())
+            self.update()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if not self.click_mode:

@@ -14,6 +14,7 @@ import errno
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,7 +50,7 @@ class Action:
 
 ACTIONS: dict[str, Action] = {a.name: a for a in (
     Action("shelf", "Shelf", "view-list-icons"),
-    Action("phone", "Phone", "kdeconnect", files_only=True),
+    Action("phone", "Phone", "kdeconnect"),  # folders are zipped first
     Action("copy", "Copy to", "edit-copy"),
     Action("move", "Move to", "go-jump"),
     Action("zip", "Zip all", "application-zip", min_count=2),
@@ -216,16 +217,37 @@ def phones() -> list[tuple[str, str]]:
     return found
 
 
+# KDE Connect reads a shared file while it's being sent, after --share returns, so a zipped
+# folder must outlive the command; zips older than this are cleared on a later send.
+PHONE_ZIPS = Path.home() / ".cache" / "hala" / "phone"
+PHONE_ZIP_DAYS = 1
+
+
 def send_to_phone(files: Sequence[Path], device_id: str) -> list[tuple[Path, str]]:
-    """Hand each file to KDE Connect, which then shows its own transfer progress. Returns
-    (file, reason) for the ones it refused; the rest are queued, not necessarily arrived."""
+    """Hand each file to KDE Connect, which then shows its own transfer progress; a folder
+    is zipped first (KDE Connect only sends files). Returns (file, reason) for the ones that
+    couldn't be handed over; the rest are queued, not necessarily arrived."""
     refused = []
     for path in files:
-        if not path.is_file():
-            refused.append((path, "only files can be sent, not folders"))
-            continue
         try:
-            _kdeconnect("--device", device_id, "--share", os.fspath(path), timeout=30)
+            send = _zip_for_phone(path) if path.is_dir() else path
+            if not send.is_file():
+                raise ConversionError("only files and folders can be sent")
+            _kdeconnect("--device", device_id, "--share", os.fspath(send), timeout=30)
         except ConversionError as exc:
             refused.append((path, str(exc)))
     return refused
+
+
+def _zip_for_phone(folder: Path) -> Path:
+    from .tools import run_tool, tool
+
+    PHONE_ZIPS.mkdir(parents=True, exist_ok=True)
+    cutoff = time.time() - PHONE_ZIP_DAYS * 86400
+    for old in PHONE_ZIPS.glob("*.zip"):
+        try:
+            if old.stat().st_mtime < cutoff:
+                old.unlink()
+        except OSError:
+            pass  # gone already, or still being read: try again next time
+    return run_tool(tool("zip"), [folder], outdir=PHONE_ZIPS)

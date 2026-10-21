@@ -56,9 +56,15 @@ class Context:
     workdir: Path
     on_progress: Callable[[float], None] = lambda _f: None
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    # Things the user should know about a result that still worked (e.g. pictures a document
+    # pointed at but that were left out); shown with the result.
+    notes: list[str] = field(default_factory=list)
 
     def progress(self, fraction: float) -> None:
         self.on_progress(max(0.0, min(1.0, fraction)))
+
+    def note(self, text: str) -> None:
+        self.notes.append(text)
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():

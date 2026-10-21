@@ -199,6 +199,7 @@ class Batch:
 
     def _notify_success(self, done: list[Job]) -> None:
         outputs = [j.output for j in done if j.output]
+        notes = [n for j in done for n in j.notes]
         self.copy_text = ""
         if len(outputs) == 1:
             body = _esc(outputs[0].name)
@@ -212,6 +213,8 @@ class Batch:
             folder = _common_folder(outputs).name
             body = f"{len(outputs)} files in {_esc(folder)}"
             actions = ["show", "Show in folder"]
+        if notes:
+            body += "".join(f"<br><i>{_esc(n)}</i>" for n in notes[:3])
         self.outputs = outputs
         self._notify(self._title(), body, "hala", actions)
 

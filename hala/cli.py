@@ -122,9 +122,11 @@ def _run_queue(args: argparse.Namespace, submit: Submit) -> int:
                 print(json.dumps({"src": str(job.src), "target": job.target,
                                   "status": job.status.value,
                                   "output": str(job.output) if job.output else None,
-                                  "error": job.error}), flush=True)
+                                  "error": job.error, "notes": job.notes}), flush=True)
             elif job.status is Status.DONE:
                 print(f"✓ {job.src.name} → {job.output}")
+                for note in job.notes:
+                    print(f"  note: {note}")
             elif job.status is Status.FAILED:
                 print(f"✗ {job.src.name}: {job.error}", file=sys.stderr)
             else:
@@ -179,10 +181,12 @@ def cmd_dropzone(args: argparse.Namespace) -> int:
 def cmd_app(args: argparse.Namespace) -> int:
     """The application menu's Hala (and Open with → Hala): files are described, as with
     `run`; without files the drop zone starts, or a notification says where it already is."""
-    if args.files:
+    # hala://open (a link from a web page) just starts Hala; it names no files.
+    files = [p for p in args.files if not p.startswith("hala:")]
+    if files:
         from .desktop import run
 
-        return run([Path(p) for p in args.files], None)
+        return run([Path(p) for p in files], None)
     from .gui import dropzone  # needs Qt; keep the plain CLI usable without it
 
     code = dropzone.main()
@@ -193,6 +197,12 @@ def cmd_app(args: argparse.Namespace) -> int:
     notify("Hala is running", "Drag files to the thin strip at the screen edge, or right-click "
            "Hala's tray icon for the shelf.")
     return 0
+
+
+def cmd_wheel(args: argparse.Namespace) -> int:
+    from .gui.wheelapp import main as wheel_main  # needs Qt; keep the plain CLI usable without it
+
+    return wheel_main([Path(p) for p in args.files], from_clipboard=args.clipboard)
 
 
 def cmd_edit(args: argparse.Namespace) -> int:
@@ -266,6 +276,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("files", nargs="*")
     p.set_defaults(func=cmd_app)
 
+    p = sub.add_parser("wheel", help="the format wheel for FILES (or --clipboard), without "
+                       "dragging to the screen edge")
+    p.add_argument("files", nargs="*")
+    p.add_argument("--clipboard", action="store_true",
+                   help="use the files last copied (Ctrl+C) instead; the global shortcut does this")
+    p.set_defaults(func=cmd_wheel)
+
     p = sub.add_parser("edit", help="crop, annotate or redact pictures (saves a copy)")
     p.add_argument("files", nargs="+")
     p.set_defaults(func=cmd_edit)
@@ -323,7 +340,7 @@ def _add_tool_parsers(sub: argparse._SubParsersAction) -> None:
 
 
 # Started from the drop zone, Dolphin or a tray menu: nobody sees their stderr.
-DETACHED = {"app", "run", "action", "shelf", "edit"}
+DETACHED = {"app", "run", "action", "shelf", "edit", "wheel"}
 CRASH_LOG = Path.home() / ".cache" / "hala" / "crash.log"
 
 

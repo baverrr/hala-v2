@@ -3,21 +3,24 @@
 from __future__ import annotations
 
 import fcntl
+import importlib.util
 import json
 import re
-import threading
+import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ..formats import ext_of
 from ..runner import Context, ConversionError
 
-# LibreOffice gets its own profile so it never attaches to (or is blocked by) a LibreOffice
-# window the user has open. One profile means one conversion at a time, hence the lock.
+# LibreOffice gets its own profiles so it never attaches to (or is blocked by) a LibreOffice
+# window the user has open. A profile serves one conversion at a time, so there is one per
+# worker (lo-profile, lo-profile-2, ...), each claimed with a lock file; conversions beyond
+# that wait for a free one, in this process or any other hala.
 PROFILE = Path.home() / ".cache" / "hala" / "lo-profile"
-_lock = threading.Lock()
+PROFILES = 2  # jobs.DEFAULT_WORKERS: as many LibreOffice runs as conversions at once
 # A conversion that takes longer has almost certainly hung (e.g. on a dialog nobody can see).
 SOFFICE_TIMEOUT_S = 10 * 60
 
@@ -51,12 +54,12 @@ XCU_TAIL = "</oor:items>\n"
 def office(ctx: Context, src: Path, dst_ext: str) -> Path:
     outdir = ctx.workdir / "lo"
     outdir.mkdir()
-    cmd: list[str | Path] = ["soffice", f"-env:UserInstallation={PROFILE.as_uri()}",
-                             "--headless", "--norestore", "--nolockcheck"]
-    if (infilter := IMPORT_FILTERS.get(ext_of(src))) is not None:
-        cmd.append(f"--infilter={infilter}")
-    cmd += ["--convert-to", EXPORT_FILTERS.get(dst_ext, dst_ext), "--outdir", outdir, src]
-    with _profile_lock(ctx):
+    with _profile_lock(ctx) as profile:
+        cmd: list[str | Path] = ["soffice", f"-env:UserInstallation={profile.as_uri()}",
+                                 "--headless", "--norestore", "--nolockcheck"]
+        if (infilter := IMPORT_FILTERS.get(ext_of(src))) is not None:
+            cmd.append(f"--infilter={infilter}")
+        cmd += ["--convert-to", EXPORT_FILTERS.get(dst_ext, dst_ext), "--outdir", outdir, src]
         # svp: LibreOffice's headless display backend; it never touches Wayland/X.
         ctx.run(cmd, env={"SAL_USE_VCLPLUGIN": "svp"}, timeout=SOFFICE_TIMEOUT_S)
     produced = list(outdir.iterdir())
@@ -66,25 +69,34 @@ def office(ctx: Context, src: Path, dst_ext: str) -> Path:
     return produced[0]
 
 
+def profile_path(slot: int) -> Path:
+    return PROFILE if slot == 0 else PROFILE.with_name(f"{PROFILE.name}-{slot + 1}")
+
+
 @contextmanager
-def _profile_lock(ctx: Context) -> Iterator[None]:
-    """Hold the profile for this thread and (flock) for other hala processes, cancellably."""
-    while not _lock.acquire(timeout=0.2):
+def _profile_lock(ctx: Context) -> Iterator[Path]:
+    """A free profile, held (flock) until the block ends; waits, cancellably, while all are
+    busy. flock locks belong to the open file, so threads of one process exclude each other
+    as well as other processes."""
+    PROFILE.parent.mkdir(parents=True, exist_ok=True)
+    while True:
+        for slot in range(PROFILES):
+            profile = profile_path(slot)
+            lockfile = open(PROFILE.parent / f"lo{'' if slot == 0 else slot + 1}.lock", "w")  # noqa: SIM115
+            try:
+                fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                lockfile.close()
+                continue
+            try:
+                profile.mkdir(exist_ok=True)
+                lock_down_profile(profile)
+                yield profile
+            finally:
+                lockfile.close()  # releases the flock
+            return
         ctx.check_cancelled()
-    try:
-        PROFILE.mkdir(parents=True, exist_ok=True)
-        with open(PROFILE.parent / "lo.lock", "w") as lockfile:
-            while True:
-                try:
-                    fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except BlockingIOError:
-                    ctx.check_cancelled()
-                    ctx.cancel_event.wait(0.2)
-            lock_down_profile()
-            yield  # closing the file releases the flock
-    finally:
-        _lock.release()
+        ctx.cancel_event.wait(0.2)
 
 
 def lock_down_profile(profile: Path = PROFILE) -> None:
@@ -117,8 +129,8 @@ URI_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
-    if dst_ext == "pdf":
-        # pandoc's own PDF route needs LaTeX; go through DOCX and LibreOffice instead.
+    if dst_ext == "pdf" and importlib.util.find_spec("weasyprint") is None:
+        # No WeasyPrint (and pandoc's default PDF route needs LaTeX): DOCX, then LibreOffice.
         docx = pandoc(ctx, src, "docx")
         return office(ctx, docx, "pdf")
     # Pass 1 parses in pandoc's sandbox, so include directives (".. include::", \input,
@@ -132,21 +144,43 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     meta = tree.get("meta", {})
     for key in FILE_METADATA:
         meta.pop(key, None)
-    _confine(tree, lambda target: _is_local(target, src.parent, roots))
+    left_out: list[str] = []
+
+    def allowed(target: str) -> bool:
+        if _is_local(target, src.parent, roots):
+            return True
+        left_out.append(target)
+        return False
+
+    # WeasyPrint fetches whatever HTML points at (stylesheets, url() in styles, <link>), so
+    # for a PDF no raw HTML survives at all, not even from header-includes metadata.
+    _confine(tree, allowed, drop_raw=dst_ext == "pdf")
+    if left_out:
+        shown = ", ".join(PurePosixPath(t).name or t for t in left_out[:3])
+        more = f" and {len(left_out) - 3} more" if len(left_out) > 3 else ""
+        ctx.note(f"left out {len(left_out)} picture{'s' * (len(left_out) != 1)} from outside "
+                 f"the document's folder: {shown}{more}")
     # Named after the source: a standalone HTML page without a title is titled by this name.
     parsed = ctx.workdir / "parsed" / f"{src.stem}.json"
     parsed.parent.mkdir()
     parsed.write_text(json.dumps(tree), encoding="utf-8")
-    out = ctx.workdir / f"out.{dst_ext}"
+    # A PDF is made from standalone HTML by WeasyPrint, confined to the same folders.
+    write_ext = "html" if dst_ext == "pdf" else dst_ext
+    out = ctx.workdir / f"out.{write_ext}"
     cmd: list[str | Path] = ["pandoc", "-f", "json", parsed, "-o", out]
-    if (writer := PANDOC_WRITERS.get(dst_ext)) is not None:
+    if (writer := PANDOC_WRITERS.get(write_ext)) is not None:
         cmd += ["-t", writer]
-    if dst_ext in ("html", "epub"):
+    if write_ext in ("html", "epub"):
         cmd.append("--standalone")
     # Relative image links ("![](img/x.png)") are resolved against the source's folder.
     cmd += ["--resource-path", src.parent]
     ctx.run(cmd, cwd=ctx.workdir)
-    return out
+    if dst_ext != "pdf":
+        return out
+    pdf = ctx.workdir / "out.pdf"
+    ctx.run([sys.executable, "-I", "-m", "hala.engines.weasy_confined", out, pdf, src.parent,
+             *roots, ctx.workdir], cwd=ctx.workdir, timeout=SOFFICE_TIMEOUT_S)
+    return pdf
 
 
 def _is_local(target: str, base: Path, roots: tuple[Path, ...]) -> bool:
@@ -162,11 +196,12 @@ def _is_local(target: str, base: Path, roots: tuple[Path, ...]) -> bool:
     return any(where.is_relative_to(root) for root in roots)
 
 
-def _confine(node: Any, allowed: Callable[[str], bool]) -> Any:
-    """Replace pictures and raw HTML that point outside allowed with their alt text/nothing."""
+def _confine(node: Any, allowed: Callable[[str], bool], drop_raw: bool = False) -> Any:
+    """Replace pictures and raw HTML that point outside allowed with their alt text/nothing;
+    with drop_raw, all raw HTML goes."""
     if isinstance(node, list):
         for i, item in enumerate(node):
-            node[i] = _confine(item, allowed)
+            node[i] = _confine(item, allowed, drop_raw)
     elif isinstance(node, dict):
         kind = node.get("t")
         if kind == "Image":
@@ -175,9 +210,9 @@ def _confine(node: Any, allowed: Callable[[str], bool]) -> Any:
                 return {"t": "Span", "c": [attr, _confine(alt, allowed)]}
         elif kind in ("RawInline", "RawBlock"):
             sources = ["".join(m) for m in RAW_SOURCE.findall(node["c"][1])]
-            if not all(allowed(s) for s in sources):
+            if drop_raw or not all(allowed(s) for s in sources):
                 return {"t": "Str", "c": ""} if kind == "RawInline" else {"t": "Plain", "c": []}
         for key, value in node.items():
             if key != "t":
-                node[key] = _confine(value, allowed)
+                node[key] = _confine(value, allowed, drop_raw)
     return node
