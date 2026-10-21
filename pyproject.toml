@@ -1,0 +1,40 @@
+[project]
+name = "hala"
+dynamic = ["version"]
+description = "Local file converter for KDE Plasma, built on ffmpeg, libvips, LibreOffice and friends"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+hala = "hala.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["hala*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "hala.__version__"}
+
+[tool.setuptools.package-data]
+hala = ["data/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.pyright]
+include = ["hala", "tests"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+extraPaths = ["/usr/lib/python3/dist-packages"]  # gi (Gio) and PySide6 come from apt
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["office: needs LibreOffice (slow)"]
