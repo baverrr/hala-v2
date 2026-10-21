@@ -30,7 +30,8 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 >   conversions can lose quality, formatting or metadata, and **Move to** removes files from
 >   their old place.
 > - **Check redactions before sharing.** Pixelating small text may not hide it completely;
->   use the black box for anything sensitive. Hala doesn't redact PDFs.
+>   use the black box for anything sensitive. In a PDF, only the pages you edited are
+>   flattened; the other pages keep their text and anything hidden in them.
 > - **Check metadata before sharing.** Conversions keep metadata, such as where a photo was
 >   taken, wherever the new format can hold it. The **Metadata** tool removes it.
 > - **Only convert files you have the right to copy or change.**
@@ -75,8 +76,10 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 - **Actions:** put files on the shelf, send them to your phone with KDE Connect, copy or move
   them to a folder, or zip them all, from bubbles under the wheel.
 - **Shelf:** a small floating window that holds files until you drag them somewhere else.
-- **Picture editor:** crop (with aspect presets), rotate, flip, arrows, lines, shapes,
-  freehand, text, and redaction by black box or pixelation, with undo. It always saves a copy.
+- **Picture and PDF editor:** crop (with aspect presets), rotate, flip, arrows, lines,
+  shapes, freehand, text, and redaction by black box or pixelation, with undo. PDFs are
+  edited page by page, and redacted pages are flattened so the text underneath is really gone.
+  It always saves a copy.
 - **Plasma-native feedback:** progress appears in Plasma's job tracker with a working Cancel
   button, and a notification offers **Open** or **Show in folder** when the work is done.
 - **Never overwrites anything.** Results go next to the originals as `name.ext`, or
@@ -90,11 +93,11 @@ and tested on Ubuntu 26.04 with Plasma 6.6.
 
 ### From the release (recommended)
 
-Download `hala_0.2.0_all.deb` from the
+Download `hala_0.3.0_all.deb` from the
 [latest release](https://github.com/baverrr/hala-v2/releases/latest), then:
 
 ```bash
-sudo apt install ./hala_0.2.0_all.deb
+sudo apt install ./hala_0.3.0_all.deb
 ```
 
 apt also installs the converters Hala needs: ffmpeg, libvips, poppler, 7-Zip, qpdf,
@@ -117,8 +120,8 @@ To uninstall: `sudo apt remove hala`.
 ```bash
 git clone https://github.com/baverrr/hala-v2.git hala
 cd hala
-python3 packaging/build_deb.py --release      # makes dist/hala_0.2.0_all.deb
-sudo apt install ./dist/hala_0.2.0_all.deb
+python3 packaging/build_deb.py --release      # makes dist/hala_0.3.0_all.deb
+sudo apt install ./dist/hala_0.3.0_all.deb
 ```
 
 The package installs the `hala` command, the application-menu entry and icon, and the Dolphin
@@ -186,7 +189,7 @@ Select one or more files in Dolphin and right-click:
   selected (all pictures, say), it lists the formats for the whole selection, and files
   already in the chosen format are skipped.
 - **Hala tools ›** holds the tools that take the selection, **Crop, annotate, redact…** for
-  pictures, and **Put on shelf** for anything.
+  pictures and PDFs, and **Put on shelf** for anything.
 
 Conversions started from Dolphin show progress in Plasma's job tracker. Cancel stops them
 cleanly, and no half-written files are left behind.
@@ -195,11 +198,13 @@ cleanly, and no half-written files are left behind.
 
 <p align="center">
   <img src="docs/trim.png" alt="The Trim dialog for boat trip.mp4: Start and End times, a Frame-accurate checkbox, the clip's length, and preview frames of the start and end points" width="420">
+  &nbsp;&nbsp;
+  <img src="docs/compress.png" alt="The Compress dialog for beach.png: a Compress to (MB) field set to 0.1 and an Allow a smaller format checkbox" width="340">
 </p>
 
 | Tool | What it does | Takes |
 |---|---|---|
-| **Compress** | Makes each file fit a size, e.g. 5 MB for an email. Pictures get the best quality that fits and are scaled down if needed. Video gets a two-pass encode. Audio gets a lower bit rate. PDFs try Ghostscript presets from best-looking down. | pictures, video, audio, PDF |
+| **Compress** | Makes each file fit a size, e.g. 5 MB for an email, trying the best-looking way first. Pictures: the highest quality that fits, then without their metadata, then smaller. Video: a two-pass encode, lowering resolution (down to 360p), frame rate and sound as the size shrinks, and redone smaller if it overshoots. Audio: a lower bit rate, mono when it's low. PDFs: a lossless repack first, then Ghostscript presets, then lower picture resolutions. **Allow a smaller format** lets pictures become WebP and sound become Opus (down to 12 kb/s) when that's what fits. | pictures, video, audio, PDF |
 | **Metadata** | Removes **everything**, or only the **location**, or nothing. It can also set title, author and comment. Picture orientation and colour profile are kept. | pictures, PDF, video, audio |
 | **Merge PDF** | One PDF from several PDFs and/or pictures, in the order you choose in the dialog. | PDF, pictures (2+) |
 | **Split PDF** | One PDF per page, or per range (`1-3, 5, 8-`). | PDF |
@@ -240,7 +245,8 @@ remove it. Only one shelf runs at a time; sending more files adds them to it.
   <img src="docs/editor.png" alt="The picture editor: a toolbar with Crop, Arrow, Line, Rectangle, Ellipse, Pen, Text and two Redact tools, colour and size controls, rotate, flip, undo, redo, save and copy buttons; a sunset photo annotated with a red arrow, a red circle, white text, and a pixelated booking reference" width="640">
 </p>
 
-Open it with **Hala tools › Crop, annotate, redact…** in Dolphin, or `hala edit PICTURE...`.
+Open it with **Hala tools › Crop, annotate, redact…** in Dolphin, or `hala edit FILE...` for
+pictures and PDFs.
 
 - **Crop** by dragging, with aspect presets (free, 1:1, 4:3, 16:9…). Press **Enter** to apply.
 - **Arrow, Line, Rectangle, Ellipse, Pen, Text** in any colour and line or text size.
@@ -253,6 +259,21 @@ Open it with **Hala tools › Crop, annotate, redact…** in Dolphin, or `hala e
 Saved copies carry no metadata from the original (no location, camera or edit history). The
 orientation is applied to the pixels instead.
 
+<p align="center">
+  <img src="docs/editor-pdf.png" alt="The editor with page 1 of 2 of a membership letter open: the account number and sort code are covered by a black redaction box, and the status bar says 1 page edited" width="560">
+</p>
+
+**PDFs** open page by page (◀ **Page n of m** ▶, or Page Up / Page Down), with the drawing
+and redaction tools; crop, rotate and flip are left out, as they'd change the page size. Each
+page keeps its own edits and undo history. **Save copy** writes `name (edited).pdf`:
+
+- **Pages you edited are flattened into pictures,** so text under a black box can't be
+  selected, searched or copied out of the file. That's what makes the redaction real, but it
+  also means those pages' text is no longer selectable.
+- **Pages you didn't touch are kept exactly as they were**, text and all.
+- **The original's metadata, bookmarks, attachments and form data aren't carried over**,
+  because they're common places for the information you meant to remove.
+
 ### Command line
 
 Everything is also available from a terminal:
@@ -264,13 +285,14 @@ hala convert -t mp3 -o ~/Music talk.mp4  # ...or into another folder
 hala convert -t folder backup.7z         # extract an archive
 hala tool                                # list the tools
 hala tool compress --size 5 video.mp4    # each tool's options: hala tool NAME --help
+hala tool compress --size 1 --reformat talk.mp3   # may become Opus to fit
 hala tool metadata --remove location *.jpg
 hala tool trim --start 0:05 --end 1:30 clip.mp4
 hala tool split-pdf --pages "1-3, 5" scan.pdf
 hala tool metadata --show photo.jpg      # print a file's title, author, location...
 hala shelf [FILES]                       # open the shelf, optionally with files
 hala action zip|copy|move|phone|shelf FILES
-hala edit PICTURE...
+hala edit PICTURE-OR-PDF...
 hala wheel FILES | --clipboard           # the wheel without dragging to the edge
 hala formats                             # the whole conversion table
 hala doctor                              # check the converters are installed
@@ -362,10 +384,12 @@ and [CodeQL](https://codeql.github.com/) scans every push.
 - **Pictures in documents must sit in the document's folder** (or below it) to be embedded.
   Absolute paths, `../` paths and web images are left out on purpose, as their alt text, and
   the result's notification says which ones.
-- **Compress is best effort.** If even the smallest setting doesn't reach the size you asked
-  for, it says how small the file can get instead of producing a bad result.
-- **The editor is for pictures only.** There's no PDF redaction. Saved copies are flat
-  pictures, so there are no layers to go back to.
+- **Compress has a floor.** If even its last step doesn't reach the size you asked for, it says
+  how small the file can get instead of producing a bad result. It only changes the format
+  when you tick **Allow a smaller format**, and it never converts video to another codec.
+- **Edited PDF pages become pictures.** Their text can't be selected or searched any more
+  (unedited pages keep theirs), and there's no crop or rotate for PDFs. Saved copies are flat,
+  so there are no layers to go back to.
 - **Phone sending needs KDE Connect** with a paired phone on the same network. The shelf, the
   action bubbles, phone sending and the wheel shortcut are the newest parts of Hala and have
   had less real-world use than the converter.

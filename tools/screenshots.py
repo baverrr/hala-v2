@@ -156,6 +156,58 @@ def editor(picture: Path) -> None:
     window.hide()  # close() would ask whether to save the edits
 
 
+def letter(path: Path) -> Path:
+    """A made-up two-page letter with an account number to redact."""
+    from PySide6.QtCore import QMarginsF
+    from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
+
+    writer = QPdfWriter(str(path))
+    writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A5),
+                                     QPageLayout.Orientation.Portrait, QMarginsF(15, 15, 15, 15)))
+    p = QPainter(writer)
+    p.setFont(QFont("Noto Sans", 11))
+    lines = ["Harbour Kayak Club", "", "Dear member,", "",
+             "Thank you for renewing your membership for 2027.",
+             "Your yearly fee will be collected from:", "",
+             "    Account 4417 2093 8810 5562", "    Sort code 20-44-91", "",
+             "Paddling resumes on Saturday mornings at 8:00.", "", "See you on the water!"]
+    for i, line in enumerate(lines):
+        p.drawText(0, 400 + i * 260, line)
+    writer.newPage()
+    p.drawText(0, 400, "Page two: the club calendar.")
+    p.end()
+    return path
+
+
+def pdf_editor(pdf: Path) -> None:
+    from hala.editing import Step
+    from hala.gui.editor import Editor
+
+    window = Editor(pdf)
+    doc = window.doc
+    width = doc.base.width()
+    doc.add(Step("black", rect=QRect(int(width * 0.05), 282, int(width * 0.4), 68)))  # the account
+    window.canvas.changed.emit()
+    window.resize(1000, 860)
+    window.show()
+    for _ in range(10):
+        QApplication.processEvents()
+    save(window.grab(), "editor-pdf.png")
+    window.pdf.mark_clean() if window.pdf else None
+    window.hide()
+
+
+def compress_dialog(picture: Path) -> None:
+    from hala.gui.dialog import ToolDialog
+    from hala.tools import tool
+
+    dialog = ToolDialog(tool("compress"), [picture])
+    dialog.show()
+    QApplication.processEvents()
+    save(dialog.grab(), "compress.png")
+    dialog.close()
+
+
 def main() -> None:
     app = QApplication(sys.argv[:1])
     # Offscreen Qt has no platform theme, so it only looks in its own resources for icons.
@@ -185,6 +237,8 @@ def main() -> None:
         trim_dialog(clip)
         shelf([*pics, clip, song])
         editor(pics[1])
+        pdf_editor(letter(folder / "membership letter.pdf"))
+        compress_dialog(pics[0])
     del app
 
 

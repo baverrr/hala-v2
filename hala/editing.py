@@ -9,8 +9,10 @@ or a thumbnail.
 from __future__ import annotations
 
 import math
+import re
 import subprocess
 import tempfile
+import zlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +34,7 @@ from PySide6.QtGui import (
 
 from . import formats as f
 from .convert import _place
+from .engines import images
 from .engines.images import check_picture
 from .limits import check_pixels
 from .runner import ConversionError
@@ -337,5 +340,155 @@ def save_copy(image: QImage, src: Path, *, dest: Path | None = None) -> Path:
                 raise ConversionError(f"couldn't write a {ext.upper()} file: "
                                       f"{writer.errorString()}")
             return _place(scratch, parent, name)
+    except OSError as exc:
+        raise ConversionError(f"can't save in {parent}: {exc.strerror or exc}") from None
+
+
+# --- PDFs -----------------------------------------------------------------------------------
+
+# Pages are rendered, and edited ones written back, at the resolution images.images_to_pdf
+# uses, so a flattened page keeps its size.
+PDF_DPI = images.PDF_DPI
+PDF_TIMEOUT_S = 300
+# pdfinfo -f/-l lines: "Page    1 size: 595 x 842 pts (A4)" and "Page    1 rot:  90"
+PAGE_LINE = re.compile(r"^Page\s+(?P<page>\d+)\s+(?P<what>size|rot):\s+(?P<w>[\d.]+)"
+                       r"(?:\s+x\s+(?P<h>[\d.]+))?")
+
+
+class PdfPages:
+    """A PDF opened for editing: each page becomes a Document the first time it's shown.
+
+    Saving (save_pdf_copy) flattens only the pages that were edited into pictures, so text
+    under a redaction is really gone from them; the rest are kept exactly as they were.
+    """
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.sizes = _page_sizes(path)  # (width, height) in points, as shown (rotation applied)
+        self.count = len(self.sizes)
+        self._tmp = tempfile.TemporaryDirectory(prefix="hala-pdf-")
+        self._docs: dict[int, Document] = {}
+
+    def page(self, index: int) -> Document:
+        if not 0 <= index < self.count:
+            raise IndexError(index)
+        if index not in self._docs:
+            stem = Path(self._tmp.name) / f"page{index + 1}"
+            _poppler(["pdftoppm", "-png", "-r", str(PDF_DPI), "-f", str(index + 1),
+                      "-l", str(index + 1), "-singlefile", str(self.path), str(stem)],
+                     f"couldn't show page {index + 1} of {self.path.name}")
+            self._docs[index] = Document(load_image(stem.with_suffix(".png")))
+        return self._docs[index]
+
+    def forget(self, index: int) -> None:
+        """Drop an unedited page's picture (it's rendered again if shown again), so paging
+        through a long PDF doesn't keep every page in memory."""
+        doc = self._docs.get(index)
+        if doc is not None and not doc.edited and not doc.can_redo:
+            del self._docs[index]
+
+    def edited_pages(self) -> list[int]:
+        return sorted(i for i, doc in self._docs.items() if doc.edited)
+
+    @property
+    def edited(self) -> bool:
+        return any(doc.edited for doc in self._docs.values())
+
+    @property
+    def modified(self) -> bool:
+        return any(doc.modified for doc in self._docs.values())
+
+    def mark_clean(self) -> None:
+        for doc in self._docs.values():
+            doc.mark_clean()
+
+    def close(self) -> None:
+        self._tmp.cleanup()
+
+
+def _poppler(cmd: list[str], failure: str) -> str:
+    try:
+        return subprocess.run(cmd, check=True, capture_output=True, text=True,
+                              timeout=PDF_TIMEOUT_S).stdout
+    except FileNotFoundError:
+        raise ConversionError(f"{failure}: poppler isn't installed "
+                              "(apt install poppler-utils)") from None
+    except subprocess.TimeoutExpired:
+        raise ConversionError(f"{failure}: it took too long") from None
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip().splitlines()
+        raise ConversionError(failure + (f" ({detail[-1]})" if detail else "")) from None
+
+
+def _page_sizes(path: Path) -> list[tuple[float, float]]:
+    """Each page's size in points as it's displayed: a page rotated by 90 or 270 degrees has
+    its width and height swapped, like the picture pdftoppm renders of it."""
+    failure = f"can't open {path.name} as a PDF"
+    info = _poppler(["pdfinfo", str(path)], failure)
+    count = next((int(fs[1]) for line in info.splitlines() if (fs := line.split())[:1]
+                  == ["Pages:"] and len(fs) > 1 and fs[1].isdigit()), 0)
+    if count < 1:
+        raise ConversionError(f"{path.name} has no pages")
+    info = _poppler(["pdfinfo", "-f", "1", "-l", str(count), str(path)], failure)
+    sizes: dict[int, tuple[float, float]] = {}
+    turned: set[int] = set()
+    for line in info.splitlines():
+        m = PAGE_LINE.match(line)
+        if m and m["what"] == "size":
+            sizes[int(m["page"])] = (float(m["w"]), float(m["h"]))
+        elif m and m["what"] == "rot" and int(float(m["w"])) % 180 == 90:
+            turned.add(int(m["page"]))
+    if len(sizes) != count:
+        raise ConversionError(f"{failure} (couldn't read its page sizes)")
+    return [(h, w) if n in turned else (w, h) for n, (w, h) in sorted(sizes.items())]
+
+
+def _page_pdf(image: QImage, size: tuple[float, float]) -> bytes:
+    """A one-page PDF of the given size (points) holding just this picture, lossless (Flate)."""
+    rgb = _pixels_only(image, "jpg").convertToFormat(QImage.Format.Format_RGB888)
+    width, height, stride = rgb.width(), rgb.height(), rgb.bytesPerLine()
+    bits = bytes(rgb.constBits())  # rows may be padded to 4 bytes; the PDF wants them packed
+    raw = b"".join(bits[y * stride:y * stride + width * 3] for y in range(height))
+    return images._build_pdf([(zlib.compress(raw, 6), "/FlateDecode", width, height)],
+                             sizes=[size])
+
+
+def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
+    """Write "name (edited).pdf" beside the original (or dest), never overwriting: edited pages
+    flattened to pictures, the others as they were. It's built from an empty PDF, so the
+    original's metadata, bookmarks, attachments and form data don't come along."""
+    src = pages.path
+    if dest is not None and f.ext_of(dest) != "pdf":
+        raise ConversionError("a PDF can only be saved as a PDF")
+    parent = dest.parent if dest else src.parent
+    name = dest.name if dest else f"{f.stem_of(src)} (edited).pdf"
+    edited = set(pages.edited_pages())
+    try:
+        with tempfile.TemporaryDirectory(prefix=".hala-edit-", dir=parent) as tmp:
+            spec: list[str] = []
+            i = 0
+            while i < pages.count:
+                if i in edited:
+                    flat = Path(tmp) / f"page{i + 1}.pdf"
+                    flat.write_bytes(_page_pdf(pages.page(i).render(), pages.sizes[i]))
+                    spec += [str(flat), "1"]
+                    i += 1
+                    continue
+                start = i  # a run of untouched pages goes in as one range
+                while i < pages.count and i not in edited:
+                    i += 1
+                spec += [str(src), f"{start + 1}-{i}"]
+            out = Path(tmp) / "out.pdf"
+            result = subprocess.run(["qpdf", "--empty", "--pages", *spec, "--", str(out)],
+                                    capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
+            if result.returncode not in (0, 3) or not out.exists():  # 3: warnings only
+                detail = result.stderr.strip().splitlines()
+                raise ConversionError("couldn't write the PDF"
+                                      + (f" ({detail[-1]})" if detail else ""))
+            return _place(out, parent, name)
+    except FileNotFoundError:
+        raise ConversionError("saving a PDF needs qpdf (apt install qpdf)") from None
+    except subprocess.TimeoutExpired:
+        raise ConversionError("writing the PDF took too long") from None
     except OSError as exc:
         raise ConversionError(f"can't save in {parent}: {exc.strerror or exc}") from None

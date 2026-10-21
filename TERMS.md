@@ -23,7 +23,8 @@ without permission (for example, forking on GitHub as GitHub's own terms permit)
   with **Move to** deletes them from their old place once they've been copied.
 - **Check redactions before sharing.** The editor burns black boxes and pixelation into the
   saved picture, but pixelating small text may not hide it completely. Use a black box for
-  anything sensitive. Hala doesn't redact PDFs.
+  anything sensitive. In a PDF, only the pages you edited are flattened; the other pages
+  keep their text and anything hidden in them.
 - **Check metadata before sharing.** Conversions keep metadata where the format can hold it;
   use the **Metadata** tool to remove it.
 

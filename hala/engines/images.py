@@ -182,7 +182,10 @@ def images_to_pdf(ctx: Context, sources: list[Path]) -> Path:
     return out
 
 
-def _build_pdf(pages: list[tuple[bytes, str, int, int]]) -> bytes:
+def _build_pdf(pages: list[tuple[bytes, str, int, int]],
+               sizes: list[tuple[float, float]] | None = None) -> bytes:
+    """A PDF with one picture filling each page. Pages are the pictures' size at PDF_DPI, or
+    sizes[i] in points when given (the editor matches an original page exactly)."""
     objects: list[bytes] = []
 
     def add(body: bytes) -> int:
@@ -192,11 +195,11 @@ def _build_pdf(pages: list[tuple[bytes, str, int, int]]) -> bytes:
     catalog = add(b"")  # filled in once the page tree exists
     tree = add(b"")
     page_ids = []
-    for data, filt, width, height in pages:
+    for i, (data, filt, width, height) in enumerate(pages):
         image = add(b"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB"
                     b" /BitsPerComponent 8 /Filter %s /Length %d >>\nstream\n%s\nendstream"
                     % (width, height, filt.encode(), len(data), data))
-        w_pt, h_pt = width * 72 / PDF_DPI, height * 72 / PDF_DPI
+        w_pt, h_pt = sizes[i] if sizes else (width * 72 / PDF_DPI, height * 72 / PDF_DPI)
         draw = b"q %.2f 0 0 %.2f 0 0 cm /Im0 Do Q" % (w_pt, h_pt)
         content = add(b"<< /Length %d >>\nstream\n%s\nendstream" % (len(draw), draw))
         page_ids.append(add(b"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 %.2f %.2f]"

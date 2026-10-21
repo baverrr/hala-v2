@@ -50,3 +50,11 @@ Tests: `tests/test_security.py` (13), `tests/test_packaging.py`.
 | `hala wheel --clipboard` | Clipboard contents are another app's data. | Only `file://` URLs on this machine that exist are used; nothing else is read or run. |
 | Two LibreOffice profiles | A second profile without the lockdown. | Every profile gets `lock_down_profile()` before use (tested). |
 | Dev venv picked up the installed copy | `python -I -m hala…` from the venv ran `/usr/lib/python3/dist-packages/hala`, so helper processes ran old code. | Editable install in `compat` mode puts the checkout first. |
+
+## Compression and PDF redaction (0.3.0)
+
+| Change | Risk considered | Handling |
+|---|---|---|
+| PDF redaction in the editor | A "redaction" that only draws a box leaves the text under it in the file; hidden data elsewhere (metadata, attachments, form data, bookmarks) survives. | Edited pages are rendered by poppler and written back as pictures only (lossless), so nothing under a box remains; the copy is assembled with `qpdf --empty`, so document-level metadata, outlines, attachments and forms are dropped. Unedited pages are kept as they were, and the README/disclaimer say so. Tested: the redacted page's text is gone, the others remain, sizes and rotation match. |
+| Many PDF pages | Each rendered page is ~9 MB in memory. | Pages that weren't edited are dropped when you move on, and re-rendered if shown again; pages over the 500-megapixel limit are refused. |
+| Compress: lossless PDF repack | qpdf parses the untrusted PDF. | Same tool and paths as merge/split; the Ghostscript steps run on qpdf's output with `-dSAFER`. |

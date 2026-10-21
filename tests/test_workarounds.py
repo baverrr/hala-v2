@@ -311,3 +311,175 @@ def test_hala_links_start_the_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     started: list[str] = []
     monkeypatch.setattr(dropzone, "main", lambda edge="right": started.append(edge) or 0)
     assert main(["app", "hala://open"]) == 0 and started == ["right"]
+
+
+# --- compress: more ways to fit (limitation 7) ----------------------------------------------
+
+
+def _sh(*cmd: str | Path) -> None:
+    subprocess.run([str(c) for c in cmd], check=True, capture_output=True)
+
+
+def test_pdf_lossless_repack_comes_first(tmp_path: Path, samples: dict[str, Path]) -> None:
+    packed = convert_file(samples["png"], "pdf", outdir=tmp_path)
+    loose = tmp_path / "loose.pdf"  # the same PDF with every stream left uncompressed
+    _sh("qpdf", "--stream-data=uncompress", "--object-streams=disable", packed, loose)
+    target_mb = (loose.stat().st_size * 0.6) / 1e6
+    out = run_tool(tool("compress"), [loose], {"size": target_mb})
+    assert out.stat().st_size <= target_mb * 1e6
+    info = subprocess.run(["pdfinfo", out], capture_output=True, text=True).stdout
+    assert "Ghostscript" not in info  # qpdf's repack was enough: no picture was resampled
+
+
+def test_compress_drops_metadata_before_quality(tmp_path: Path) -> None:
+    photo = tmp_path / "photo.jpg"
+    _sh("vips", "gaussnoise", tmp_path / "n.v", "200", "150")
+    _sh("vips", "colourspace", tmp_path / "n.v", tmp_path / "rgb.v", "srgb")
+    _sh("vips", "copy", tmp_path / "rgb.v", f"{photo}[Q=95]")
+    big = tmp_path / "description.txt"
+    big.write_text("x" * 400_000)  # too long to pass as an argument
+    _sh("exiftool", "-q", "-overwrite_original", f"-XMP-dc:Description<={big}", photo)
+    out = run_tool(tool("compress"), [photo], {"size": 0.2})  # the XMP alone is 0.4 MB
+    assert out.stat().st_size <= 200_000
+    width = subprocess.run(["vipsheader", "-f", "width", out], capture_output=True,
+                           text=True).stdout.strip()
+    assert width == "200"  # fitted by dropping metadata, not by shrinking the picture
+
+
+def test_tiny_audio_targets_need_reformat_then_use_opus(tmp_path: Path) -> None:
+    song = tmp_path / "talk.mp3"
+    _sh("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=300:duration=60",
+        "-c:a", "libmp3lame", "-b:a", "64k", song)
+    target = 18_000 * 60 / 8 / 1e6  # 18 kb/s: under MP3's floor, fine for Opus
+    with pytest.raises(ConversionError, match="Allow a smaller format"):
+        run_tool(tool("compress"), [song], {"size": target})
+    out = run_tool(tool("compress"), [song], {"size": target, "reformat": True})
+    assert out.suffix == ".opus" and out.stat().st_size <= target * 1e6
+
+
+def test_reformat_is_only_offered_for_pictures_and_sound(tmp_path: Path) -> None:
+    reformat = next(p for p in tool("compress").params if p.name == "reformat")
+    assert reformat.applies_to([tmp_path / "a.jpg"]) and reformat.applies_to([tmp_path / "a.mp3"])
+    assert not reformat.applies_to([tmp_path / "a.mp4"])
+    assert not reformat.applies_to([tmp_path / "a.pdf"])
+
+
+# --- PDF redaction in the editor (limitation 8) ---------------------------------------------
+
+
+def _text_pdf(path: Path, pages: list[str], title: str = "Secret plans") -> Path:
+    from PySide6.QtCore import QMarginsF
+    from PySide6.QtGui import QFont, QPageLayout, QPageSize, QPainter, QPdfWriter
+
+    writer = QPdfWriter(str(path))
+    writer.setTitle(title)
+    writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A4),
+                                     QPageLayout.Orientation.Portrait, QMarginsF(20, 20, 20, 20)))
+    painter = QPainter(writer)
+    painter.setFont(QFont("Noto Sans", 24))
+    for i, text in enumerate(pages):
+        if i:
+            writer.newPage()
+        painter.drawText(200, 600, text)
+    painter.end()
+    return path
+
+
+def _pdf_text(path: Path, page: int) -> str:
+    return subprocess.run(["pdftotext", "-f", str(page), "-l", str(page), path, "-"],
+                          capture_output=True, text=True, check=True).stdout
+
+
+def _page_sizes(path: Path) -> list[str]:
+    info = subprocess.run(["pdfinfo", "-f", "1", "-l", "99", path], capture_output=True,
+                          text=True, check=True).stdout
+    return [line.split(":", 1)[1].split("pts")[0].strip() for line in info.splitlines()
+            if line.startswith("Page") and "size" in line]
+
+
+def test_redacted_pdf_pages_lose_their_text_the_rest_stay(tmp_path: Path) -> None:
+    from PySide6.QtCore import QRect
+
+    from hala.editing import PdfPages, Step, save_pdf_copy
+
+    src = _text_pdf(tmp_path / "plans.pdf", ["ALPHA public", "BRAVO secret", "CHARLIE public"])
+    pages = PdfPages(src)
+    assert pages.count == 3
+    page2 = pages.page(1)
+    page2.add(Step("black", rect=QRect(0, 0, page2.base.width(), page2.base.height() // 2)))
+    out = save_pdf_copy(pages)
+    pages.close()
+    assert out.name == "plans (edited).pdf"
+    assert "ALPHA" in _pdf_text(out, 1) and "CHARLIE" in _pdf_text(out, 3)
+    assert "BRAVO" not in _pdf_text(out, 2)  # flattened: the text under the box is gone
+    assert _page_sizes(out) == _page_sizes(src)
+    info = subprocess.run(["pdfinfo", out], capture_output=True, text=True).stdout
+    assert "Secret plans" not in info  # the original's metadata isn't carried over
+    assert "BRAVO" in _pdf_text(src, 2)  # the original is untouched
+
+
+def test_editor_window_pages_through_a_pdf(tmp_path: Path) -> None:
+    from PySide6.QtCore import QRect
+
+    from hala.editing import Step
+    from hala.gui.editor import Editor
+
+    src = _text_pdf(tmp_path / "two.pdf", ["ONE", "TWO"])
+    window = Editor(src)
+    assert "crop" not in window.tool_actions  # a page keeps its size
+    assert window.page_label.text().strip() == "Page 1 of 2"
+    window.go_to(1)
+    assert window.page_label.text().strip() == "Page 2 of 2"
+    assert not window.next_page.isEnabled()
+    window.doc.add(Step("black", rect=QRect(10, 10, 100, 100)))
+    window.canvas.changed.emit()
+    assert window.windowTitle().startswith("* ")
+    window.go_to(0)  # the edit on page 2 is kept while looking at page 1
+    assert window.windowTitle().startswith("* ")
+    assert window.save()
+    assert (tmp_path / "two (edited).pdf").exists()
+    assert not window.windowTitle().startswith("*")
+    window.close()
+
+
+def test_edit_menu_covers_pdfs() -> None:
+    menu = servicemenus.build_menus("/usr/bin/hala")["hala-edit.desktop"]
+    assert "application/pdf" in menu
+
+
+def test_a_rotated_page_keeps_its_size_when_flattened(tmp_path: Path) -> None:
+    from PySide6.QtCore import QRect
+
+    from hala.editing import PdfPages, Step, save_pdf_copy
+
+    flat = _text_pdf(tmp_path / "flat.pdf", ["UPRIGHT", "TURNED"])
+    src = tmp_path / "turned.pdf"
+    _sh("qpdf", "--rotate=+90:2", flat, src)
+    pages = PdfPages(src)
+    assert pages.sizes[1] == (pages.sizes[0][1], pages.sizes[0][0])  # landscape as shown
+    page = pages.page(1)
+    assert page.base.width() > page.base.height()
+    page.add(Step("black", rect=QRect(0, 0, 50, 50)))
+    out = save_pdf_copy(pages)
+    pages.close()
+    shown = subprocess.run(["pdfinfo", "-f", "2", "-l", "2", out], capture_output=True,
+                           text=True).stdout
+    assert "842 x 595 pts" in shown  # landscape as it was shown, the same size
+
+
+def test_unedited_pages_are_not_kept_in_memory(tmp_path: Path) -> None:
+    from PySide6.QtCore import QRect
+
+    from hala.editing import Step
+    from hala.gui.editor import Editor
+
+    window = Editor(_text_pdf(tmp_path / "three.pdf", ["1", "2", "3"]))
+    assert window.pdf is not None
+    window.doc.add(Step("black", rect=QRect(0, 0, 20, 20)))  # page 1 edited: kept
+    window.go_to(1)
+    window.go_to(2)  # page 2 was only looked at: dropped
+    assert sorted(window.pdf._docs) == [0, 2]
+    window.go_to(0)
+    assert window.doc.edited  # page 1's edit is still there
+    window.pdf.mark_clean()  # (so closing doesn't ask)
+    window.close()

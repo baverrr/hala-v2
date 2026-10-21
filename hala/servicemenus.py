@@ -165,7 +165,7 @@ def _tool_file(t: Tool, mimes: list[str], excludes: list[str], exe: str) -> str:
 
 
 def _edit_file(mimes: list[str], excludes: list[str], exe: str) -> str:
-    """"Edit picture…" in the Hala tools submenu, for one or more pictures."""
+    """"Crop, annotate, redact…" in the Hala tools submenu, for pictures and PDFs."""
     lines = [
         "[Desktop Entry]", "Type=Service", "X-Hala-Menu=edit",
         "X-KDE-ServiceTypes=KonqPopupMenu/Plugin", "X-KDE-Protocols=file",
@@ -212,8 +212,8 @@ def build_menus(exe: str, db: MimeDb | None = None) -> dict[str, str]:
         if mimes:
             menus[f"{PREFIX}tool-{t.name}.desktop"] = _tool_file(t, mimes, excludes_for(mimes),
                                                                  exe)
-    # Every picture we read (hala/editing.py imports Qt, so it isn't imported here).
-    editable = sorted({m for e in f.IMAGE_IN for m in db.mimes_for(e)})
+    # Every picture we read, and PDFs (hala/editing.py imports Qt, so it isn't imported here).
+    editable = sorted({m for e in (*f.IMAGE_IN, "pdf") for m in db.mimes_for(e)})
     if editable:
         menus[f"{PREFIX}edit.desktop"] = _edit_file(editable, excludes_for(editable), exe)
     menus[f"{PREFIX}shelf.desktop"] = SHELF_MENU.format(exe=exe)
