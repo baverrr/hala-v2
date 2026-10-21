@@ -22,6 +22,27 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
   <img src="docs/wheel.png" alt="The format wheel for three PNG photos: red petals for each format they can become (JPG, HEIC, WebP, TIFF, MP4, GIF, AVIF, PDF, ZIP, TAR.GZ, 7Z), with HEIC highlighted; an inner ring of tools (Compress, Metadata, Merge, Read QR); the total size and file count in the middle; and a row of action bubbles below (Shelf, Phone, Copy to, Move to, Zip all)" width="520">
 </p>
 
+> [!IMPORTANT]
+> **Disclaimer.** Hala is provided as is, without warranty, and you use it at your own risk
+> (see the [Terms and Conditions](TERMS.md)).
+>
+> - **Keep backups of anything important.** Hala never overwrites the original, but
+>   conversions can lose quality, formatting or metadata, and **Move to** removes files from
+>   their old place.
+> - **Check redactions before sharing.** Pixelating small text may not hide it completely;
+>   use the black box for anything sensitive. Hala doesn't redact PDFs.
+> - **Check metadata before sharing.** Conversions keep metadata, such as where a photo was
+>   taken, wherever the new format can hold it. The **Metadata** tool removes it.
+> - **Only convert files you have the right to copy or change.**
+> - **Some formats are patent-encumbered** in some countries (for example HEIC/HEVC, H.264 and
+>   AAC). Whether you may use them is up to you and the rights holders.
+> - **The converters are separate programs** (ffmpeg, LibreOffice, pandoc…). Hala doesn't
+>   bundle them, and each one keeps its own license.
+> - **Trademarks:** KDE, Plasma and Dolphin are trademarks of KDE e.V.; Microsoft Word, Excel
+>   and PowerPoint of Microsoft; Pages, Numbers and Keynote of Apple; Ubuntu of Canonical.
+>   They're named only to say what Hala works with. Hala isn't affiliated with, endorsed or
+>   sponsored by any of them.
+
 ## Contents
 
 - [Features](#features)
