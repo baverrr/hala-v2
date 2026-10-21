@@ -63,6 +63,8 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 - **Convert by dragging.** A thin strip on the screen edge opens a full-screen wheel of every
   format the dragged files can become. Drop on a petal and you're done. It works across
   several monitors.
+- **…or without dragging.** Right-click files in Dolphin → **Hala…**, or copy them (Ctrl+C)
+  and press **Meta+Shift+H**: the same wheel opens where the pointer is.
 - **Convert from Dolphin.** Right-click → **Convert to** lists exactly the formats a file (or a
   selection of files) can become. **Hala tools** holds the tools and the editor.
 - **Around 70 input formats:** images (including HEIC, AVIF, WebP, JPEG XL and SVG), video,
@@ -88,17 +90,19 @@ and tested on Ubuntu 26.04 with Plasma 6.6.
 
 ### From the release (recommended)
 
-Download `hala_0.1.0_all.deb` from the
+Download `hala_0.2.0_all.deb` from the
 [latest release](https://github.com/baverrr/hala-v2/releases/latest), then:
 
 ```bash
-sudo apt install ./hala_0.1.0_all.deb
+sudo apt install ./hala_0.2.0_all.deb
 ```
 
 apt also installs the converters Hala needs: ffmpeg, libvips, poppler, 7-Zip, qpdf,
-Ghostscript, exiftool, zbar and zstd. It recommends LibreOffice (office documents), pandoc
-(Markdown, HTML, e-books), KDE Connect (sending to a phone) and kdialog. Those come along
-unless you install with `--no-install-recommends`.
+Ghostscript, exiftool, zbar and zstd. It recommends LibreOffice (office documents) with the
+Carlito and Caladea fonts (so Word and PowerPoint files keep their layout), pandoc and
+WeasyPrint (Markdown, HTML, e-books, and PDFs from them), wl-clipboard (the shortcut), KDE
+Connect (sending to a phone) and kdialog. Those come along unless you install with
+`--no-install-recommends`.
 
 Check that everything is there with:
 
@@ -113,8 +117,8 @@ To uninstall: `sudo apt remove hala`.
 ```bash
 git clone https://github.com/baverrr/hala-v2.git hala
 cd hala
-python3 packaging/build_deb.py --release      # makes dist/hala_0.1.0_all.deb
-sudo apt install ./dist/hala_0.1.0_all.deb
+python3 packaging/build_deb.py --release      # makes dist/hala_0.2.0_all.deb
+sudo apt install ./dist/hala_0.2.0_all.deb
 ```
 
 The package installs the `hala` command, the application-menu entry and icon, and the Dolphin
@@ -137,8 +141,21 @@ To start the drop zone every time you log in:
 hala dropzone --autostart on       # --autostart off to stop; --edge left for the left edge
 ```
 
-The tray icon's menu can **Hide drop zone** (if the strip is in the way), **Show shelf**, and
-**Quit**.
+The tray icon's menu can **Hide drop zone** (if the strip is in the way), **Show shelf**, open
+the **Wheel for copied files**, and **Quit**.
+
+### Without dragging to the edge
+
+Wayland doesn't let an app see a drag until it reaches one of the app's own windows, which is
+why the strip exists. Two other ways open the same wheel, in click mode, wherever the pointer
+is:
+
+- **Right-click files in Dolphin → Hala…**
+- **Copy files (Ctrl+C in Dolphin or most file managers), then press Meta+Shift+H.** To change
+  the key, look for **Hala wheel** in System Settings › Keyboard › Shortcuts. The shortcut is
+  set up the first time you log in after installing.
+
+Click a petal or bubble to pick, or click outside the wheel or press **Esc** to cancel.
 
 ## Using Hala
 
@@ -200,7 +217,7 @@ Results are saved next to the originals with a suffix, e.g. `report (compressed)
 | Bubble | What happens |
 |---|---|
 | **Shelf** | The files go on the [shelf](#the-shelf). |
-| **Phone** | Sends the files to a phone paired with [KDE Connect](https://kdeconnect.kde.org/). If more than one phone is reachable, Hala asks which. Folders can't be sent. |
+| **Phone** | Sends the files to a phone paired with [KDE Connect](https://kdeconnect.kde.org/). If more than one phone is reachable, Hala asks which. A folder is sent as a `.zip` of it. |
 | **Copy to / Move to** | Asks for a folder and copies or moves the files there. Nothing is ever overwritten, links are kept as links, and a move between drives deletes the original only after the copy is complete. |
 | **Zip all** | One `.zip` of everything you dragged (shown for two or more items; for one, use the ZIP petal). |
 
@@ -254,12 +271,14 @@ hala tool metadata --show photo.jpg      # print a file's title, author, locatio
 hala shelf [FILES]                       # open the shelf, optionally with files
 hala action zip|copy|move|phone|shelf FILES
 hala edit PICTURE...
+hala wheel FILES | --clipboard           # the wheel without dragging to the edge
 hala formats                             # the whole conversion table
 hala doctor                              # check the converters are installed
 ```
 
 `hala convert` and `hala tool` print one line per file, or JSON with `--json`, and run two
-files at a time (`-j N` to change that).
+files at a time (`-j N` to change that). Anything worth knowing about a result that still
+worked, such as pictures a document had to leave out, follows as a `note:` line.
 
 ## Supported formats
 
@@ -286,8 +305,8 @@ becomes audio by extracting its first sound track. `hala formats` prints the exa
 |---|---|
 | Pictures | libvips (`vips`). EXIF rotation is applied, CMYK becomes sRGB, and transparency is flattened onto white for JPG. Pictures to PDF go through Hala's own small PDF writer. |
 | Video, audio, subtitles | ffmpeg. When the target container can hold the existing codecs, the file is rewrapped without re-encoding, which is fast and lossless. |
-| Office documents | LibreOffice in headless mode, with its own private profile, one conversion at a time. |
-| Markup and e-books | pandoc. PDF goes through DOCX and LibreOffice, so no LaTeX is needed. |
+| Office documents | LibreOffice in headless mode, with private profiles of its own: one per worker, so two documents convert at once. |
+| Markup and e-books | pandoc. PDFs are made from HTML by WeasyPrint, which may only open files in the document's own folder; without WeasyPrint they go through DOCX and LibreOffice. No LaTeX is needed. |
 | PDF | poppler (pages to pictures or text), qpdf (merge, split, metadata), Ghostscript (compression). |
 | Metadata | exiftool for pictures and PDF; an ffmpeg stream copy for audio and video. |
 | QR codes | zbar. |
@@ -311,6 +330,12 @@ Files come from anywhere, so Hala treats them as untrusted:
   files.
 - Archives can't write outside their folder: `../` paths and links that point outside are
   refused.
+- **No zip bombs, either way.** An archive that would unpack to more than 100 times its size
+  (once past 1 GB), holds over 100,000 entries, or won't fit in the free space is refused before
+  anything is written. Hala won't *make* one either: sparse files (huge on paper, empty on
+  disk) aren't packed, and an archive that would unpack to that ratio is thrown away.
+- Jobs check for free space first (twice the input), and pictures over 500 megapixels are
+  refused.
 - Nothing is ever overwritten, and every program gets full, absolute paths, so a file named
   `-rf` is just a file name.
 
@@ -323,27 +348,29 @@ and [CodeQL](https://codeql.github.com/) scans every push.
   sit on the screen edge and above other windows. On X11 or other desktops it falls back to
   ordinary windows, which is untested. Notifications and job progress use Plasma's own
   services.
-- **You have to drag to the edge.** Wayland doesn't let apps watch drags that start in other
-  apps, so there's no "hold Shift while dragging anywhere" shortcut. The strip at the screen
-  edge is the way in.
+- **No "hold Shift while dragging anywhere".** Wayland doesn't let apps watch drags that start
+  in other apps. Drag to the strip at the screen edge, or use [Hala… or the
+  shortcut](#without-dragging-to-the-edge) instead.
 - **Ubuntu/Debian package only.** Other distributions can run it from source if they have the
   same tools and Qt for Python, but only the `.deb` is built and tested.
 - **Office conversions are as good as LibreOffice.** Complex layouts, unusual fonts and Apple
-  Pages/Numbers/Keynote files may not come out exactly as they look in the original app.
-  LibreOffice handles one conversion at a time.
-- **Markup to PDF goes through Word format** (pandoc → DOCX → LibreOffice), so LaTeX maths and
-  fine typesetting are simplified.
+  Pages/Numbers/Keynote files may not come out exactly as they look in the original app. The
+  recommended Carlito and Caladea fonts fix the most common problem, Calibri and Cambria text
+  reflowing.
+- **Markup to PDF is plain.** WeasyPrint's PDFs use pandoc's simple default style, and LaTeX
+  maths isn't typeset. Without WeasyPrint they go through Word format instead.
 - **Pictures in documents must sit in the document's folder** (or below it) to be embedded.
-  Absolute paths, `../` paths and web images are left out on purpose, as their alt text.
+  Absolute paths, `../` paths and web images are left out on purpose, as their alt text, and
+  the result's notification says which ones.
 - **Compress is best effort.** If even the smallest setting doesn't reach the size you asked
   for, it says how small the file can get instead of producing a bad result.
 - **The editor is for pictures only.** There's no PDF redaction. Saved copies are flat
   pictures, so there are no layers to go back to.
-- **Phone sending needs KDE Connect** with a paired phone on the same network, and sends files,
-  not folders. The shelf, the action bubbles and phone sending are the newest parts of Hala and
-  have had less real-world use than the converter.
-- **No limits on huge inputs.** A "zip bomb" or an enormous picture can fill the disk or use a
-  lot of memory before Hala gives up. The scratch folder is removed afterwards.
+- **Phone sending needs KDE Connect** with a paired phone on the same network. The shelf, the
+  action bubbles, phone sending and the wheel shortcut are the newest parts of Hala and have
+  had less real-world use than the converter.
+- **The size limits are fixed.** Very large but legitimate inputs, such as a picture over 500
+  megapixels or an archive of mostly empty disk images, are refused rather than asked about.
 - **English only.**
 
 ## Development

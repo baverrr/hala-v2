@@ -33,6 +33,7 @@ from PySide6.QtGui import (
 from . import formats as f
 from .convert import _place
 from .engines.images import check_picture
+from .limits import check_pixels
 from .runner import ConversionError
 
 MIN_BLOCKS = 6  # a pixelated area is at least this many blocks wide or tall
@@ -73,6 +74,8 @@ def load_image(path: Path) -> QImage:
     check_picture(path)  # Qt's image plugins pick a decoder by content, like vips
     QImageReader.setAllocationLimit(ALLOCATION_LIMIT_MB)
     reader = QImageReader(str(path))
+    if (size := reader.size()).isValid():  # from the header, before anything is decoded
+        check_pixels(size.width(), size.height(), path.name)
     reader.setAutoTransform(True)
     image = reader.read()
     if image.isNull():

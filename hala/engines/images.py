@@ -5,6 +5,7 @@ from __future__ import annotations
 import zlib
 from pathlib import Path
 
+from .. import limits
 from ..formats import ANIMATED, ext_of
 from ..runner import Context, ConversionError
 
@@ -57,6 +58,16 @@ def _header(ctx: Context, path: Path, field: str) -> str:
     return ctx.run(["vipsheader", "-f", field, path]).strip()
 
 
+def check_input(ctx: Context, path: Path) -> None:
+    """A real picture (check_picture), and not one so large that it would fill the disk."""
+    check_picture(path)
+    try:
+        width, height = int(_header(ctx, path, "width")), int(_header(ctx, path, "height"))
+    except ValueError:
+        return  # vips will report what's wrong with it
+    limits.check_pixels(width, height, path.name)
+
+
 def _normalize(ctx: Context, src: Path, flatten: bool) -> Path:
     """Apply EXIF rotation, turn CMYK into sRGB, and white-flatten alpha if asked."""
     staged = ctx.workdir / "rotated.v"
@@ -76,7 +87,7 @@ def _normalize(ctx: Context, src: Path, flatten: bool) -> Path:
 
 
 def convert(ctx: Context, src: Path, dst_ext: str) -> Path:
-    check_picture(src)
+    check_input(ctx, src)
     if dst_ext == "mp4":
         return to_video(ctx, src, dst_ext)
     src_ext = ext_of(src)
@@ -108,7 +119,7 @@ def _frames(ctx: Context, path: Path) -> int:
 
 def to_video(ctx: Context, src: Path, dst_ext: str) -> Path:
     """MP4 from an image: an animation plays as itself; a still is held for STILL_SECONDS."""
-    check_picture(src)
+    check_input(ctx, src)
     out = ctx.workdir / "out.mp4"
     x264 = ["-c:v", "libx264", "-crf", "20", "-preset", "medium", "-pix_fmt", "yuv420p",
             "-movflags", "+faststart"]
@@ -142,7 +153,7 @@ def images_to_pdf(ctx: Context, sources: list[Path]) -> Path:
     pages: list[tuple[bytes, str, int, int]] = []
     for i, src in enumerate(sources):
         ctx.check_cancelled()
-        check_picture(src)
+        check_input(ctx, src)
         src_ext = ext_of(src)
         if src_ext == "svg":
             loaded = ctx.workdir / f"svg{i}.v"

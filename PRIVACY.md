@@ -23,7 +23,8 @@ them contain the **names and folders of files you converted**:
 | `~/.cache/hala/dropzone.log`, `shelf.log`, `editor.log` | What the drop zone, shelf and editor did in their last session, including file paths. Replaced each time they start. |
 | `~/.cache/hala/crash.log` | Details of unexpected errors, if any happened, including file paths. It grows until you delete it. |
 | `~/.cache/hala/last-folder` | The last folder you picked for **Copy to** / **Move to**. |
-| `~/.cache/hala/lo-profile/` | LibreOffice's settings for Hala's own conversions, kept apart from your normal LibreOffice. |
+| `~/.cache/hala/lo-profile/`, `lo-profile-2/` | LibreOffice's settings for Hala's own conversions, kept apart from your normal LibreOffice. |
+| `~/.cache/hala/phone/` | Zips of folders you sent with **Phone**, kept while KDE Connect sends them and deleted a day later. |
 | `~/.cache/hala/*.lock`, `run/` | Lock files and the shelf's local socket, so only one drop zone and one shelf run at a time. |
 | `~/.config/autostart/hala-dropzone.desktop` | Only if you turned on `hala dropzone --autostart on`. |
 | `.hala-…` folders beside your files | Scratch space while a job runs. They're removed when it finishes, or a day later if Hala was killed mid-job. |
@@ -44,7 +45,8 @@ Only what you send, when you send it:
 - **Phone:** files you send with the **Phone** action go over your local network to the phone
   you chose, through KDE Connect. KDE Connect's own privacy practices apply to that transfer.
 - **Clipboard and notifications:** text from **Read QR** is shown in a Plasma notification, and
-  copied to the clipboard if you press **Copy**. Both stay on your computer.
+  copied to the clipboard if you press **Copy**. The wheel shortcut reads which files you last
+  copied, only when you press it. All of this stays on your computer.
 
 LibreOffice and pandoc are set up so that documents can't make them fetch anything from the
 network, and ffmpeg is limited to local files.

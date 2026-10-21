@@ -51,7 +51,7 @@ def _image(ctx: Context, src: Path, target: int) -> Path:
     """Highest quality that fits; if even quality 10 doesn't, scale down and search again."""
     ext = f.ext_of(src)
     out_ext = ext if ext in LOSSY_IMAGES else "jpg"  # PNG/TIFF/BMP can't trade quality
-    images.check_picture(src)
+    images.check_input(ctx, src)
     staged = images._normalize(ctx, src, flatten=out_ext == "jpg")
     out = ctx.workdir / f"out.{out_ext}"
     scale = 1.0

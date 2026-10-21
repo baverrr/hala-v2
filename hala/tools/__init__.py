@@ -134,7 +134,8 @@ def format_time(seconds: float) -> str:
 
 def run_tool(tool: Tool, inputs: list[Path], params: Params | None = None, *,
              outdir: Path | None = None, on_progress: Callable[[float], None] | None = None,
-             cancel_event: threading.Event | None = None) -> Path:
+             cancel_event: threading.Event | None = None,
+             notes: list[str] | None = None) -> Path:
     inputs = [p.expanduser().resolve() for p in inputs]
     for p in inputs:
         if not p.exists():
@@ -155,7 +156,7 @@ def run_tool(tool: Tool, inputs: list[Path], params: Params | None = None, *,
         return label if produced.is_dir() else label + f.split_name(produced.name)[1]
 
     return produce(first, lambda ctx: tool.engine(ctx, inputs, values), name, outdir=outdir,
-                   on_progress=on_progress, cancel_event=cancel_event)
+                   on_progress=on_progress, cancel_event=cancel_event, notes=notes)
 
 
 def _registry() -> dict[str, Tool]:

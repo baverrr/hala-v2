@@ -34,8 +34,19 @@ Tests: `tests/test_security.py` (13), `tests/test_packaging.py`.
 
 ## Not fixed (accepted)
 
-- Zip bombs and huge images can fill the disk or use a lot of memory (scratch dir is removed on
-  failure; Qt's allocation limit covers the editor).
+- ~~Zip bombs and huge images can fill the disk or use a lot of memory.~~ Fixed in 0.2.0, see
+  below.
 - ImageMagick's system policy stays "open": Hala no longer hands it anything but BMP, JPEG,
   PNG, GIF and TIFF bytes. Tightening `/etc/ImageMagick-7/policy.xml` would protect other
   apps too.
+
+## Workarounds batch (0.2.0)
+
+| Change | Risk considered | Handling |
+|---|---|---|
+| Markup → PDF with WeasyPrint | WeasyPrint fetches anything HTML or an SVG picture refers to: a crafted SVG beside a document could pull `~/Pictures/…` into the PDF or call a web server. | `hala.engines.weasy_confined` renders with a URL fetcher that allows only `data:` and files under the document's folder (and Hala's scratch folder); all raw HTML, including `header-includes`, is dropped first. Tested with such an SVG. |
+| Zip bombs, both ways | Unpacking could fill the disk; Hala could also *make* a bomb from sparse files or extreme ratios. | `hala/limits.py`: >100× and >1 GB, >100,000 entries, or more than the free space is refused before writing (tarfile per entry, 7z and tar.zst from their listings, gz while streaming). Sparse files aren't packed; a bomb-ratio archive Hala made is discarded. |
+| Free space, picture size | A job on a nearly full disk, or a 100k × 100k picture. | Free space ≥ 2× the input checked first; pictures over 500 megapixels refused (vips header, Qt reader size). |
+| `hala wheel --clipboard` | Clipboard contents are another app's data. | Only `file://` URLs on this machine that exist are used; nothing else is read or run. |
+| Two LibreOffice profiles | A second profile without the lockdown. | Every profile gets `lock_down_profile()` before use (tested). |
+| Dev venv picked up the installed copy | `python -I -m hala…` from the venv ran `/usr/lib/python3/dist-packages/hala`, so helper processes ran old code. | Editable install in `compat` mode puts the checkout first. |

@@ -24,6 +24,10 @@ from .tools import Tool, tools
 MENU_DIR = Path.home() / ".local" / "share" / "kio" / "servicemenus"
 APP_DIR = Path.home() / ".local" / "share" / "applications"
 ICON_DIR = Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
+# Where KDE's global-shortcut service finds default shortcuts for apps that aren't running.
+SHORTCUT_DIR = Path.home() / ".local" / "share" / "kglobalaccel"
+SHORTCUT_FILE = "hala-wheel.desktop"
+DEFAULT_SHORTCUT = "Meta+Shift+H"
 ICON = Path(__file__).parent / "data" / "hala.svg"
 PREFIX = "hala-"
 MIME_DIRS = [Path("/usr/share/mime"), Path.home() / ".local" / "share" / "mime"]
@@ -213,7 +217,25 @@ def build_menus(exe: str, db: MimeDb | None = None) -> dict[str, str]:
     if editable:
         menus[f"{PREFIX}edit.desktop"] = _edit_file(editable, excludes_for(editable), exe)
     menus[f"{PREFIX}shelf.desktop"] = SHELF_MENU.format(exe=exe)
+    menus[f"{PREFIX}wheel.desktop"] = WHEEL_MENU.format(exe=exe)
     return menus
+
+
+# Top level, for any files: the wheel without dragging to the screen edge.
+WHEEL_MENU = """[Desktop Entry]
+Type=Service
+X-Hala-Menu=wheel
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-Protocols=file
+MimeType=all/all;
+Icon=hala
+Actions=wheel;
+
+[Desktop Action wheel]
+Name=Hala…
+Icon=hala
+Exec="{exe}" wheel %F
+"""
 
 
 # Any file or folder, any number of them.
@@ -247,12 +269,42 @@ Categories=Utility;Qt;KDE;
 Keywords=convert;converter;compress;pdf;image;video;audio;
 X-KDE-StartupNotify=false
 X-Hala-Menu=app
-Actions=shelf;
+Actions=wheel;shelf;
+
+[Desktop Action wheel]
+Name=Open the wheel for copied files
+Icon=hala
+Exec="{exe}" wheel --clipboard
 
 [Desktop Action shelf]
 Name=Open the shelf
 Icon=view-list-icons
 Exec="{exe}" shelf
+"""
+
+# hala:// links (the home dashboard's tile) start Hala like the app menu does. A link needs
+# its own entry: with %F, KDE would try to download the link as a file first.
+LINK_ENTRY = """[Desktop Entry]
+Type=Application
+Name=Hala
+Icon=hala
+Exec="{exe}" app %u
+NoDisplay=true
+MimeType=x-scheme-handler/hala;
+X-Hala-Menu=link
+"""
+
+# KDE's global-shortcut service reads default shortcuts from files like this one; the user can
+# change or clear it in System Settings > Keyboard > Shortcuts ("Hala wheel").
+SHORTCUT_ENTRY = """[Desktop Entry]
+Type=Application
+Name=Hala wheel
+Comment=Open the format wheel for the files last copied with Ctrl+C
+Icon=hala
+Exec="{exe}" wheel --clipboard
+NoDisplay=true
+X-KDE-Shortcuts={shortcut}
+X-Hala-Menu=shortcut
 """
 
 
@@ -276,8 +328,12 @@ def install(exe: str | None = None) -> list[Path]:
         written.append(path)
     APP_DIR.mkdir(parents=True, exist_ok=True)
     (APP_DIR / "hala.desktop").write_text(APP_ENTRY.format(exe=exe))
+    (APP_DIR / "hala-link.desktop").write_text(LINK_ENTRY.format(exe=exe))
     ICON_DIR.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ICON, ICON_DIR / "hala.svg")
+    SHORTCUT_DIR.mkdir(parents=True, exist_ok=True)
+    (SHORTCUT_DIR / SHORTCUT_FILE).write_text(
+        SHORTCUT_ENTRY.format(exe=exe, shortcut=DEFAULT_SHORTCUT))
     return written
 
 
@@ -288,6 +344,9 @@ def uninstall() -> int:
         if "X-Hala-Menu=" in path.read_text(errors="replace"):  # only our own files
             path.unlink()
             removed += 1
+    for ours in (SHORTCUT_DIR / SHORTCUT_FILE, APP_DIR / "hala-link.desktop"):
+        if ours.exists() and "X-Hala-Menu=" in ours.read_text(errors="replace"):
+            ours.unlink()
     app = APP_DIR / "hala.desktop"
     try:
         text = app.read_text(errors="replace")

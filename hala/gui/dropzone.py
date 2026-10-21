@@ -152,6 +152,10 @@ class DropZone:
         # reports it if one doesn't), and the tray mustn't freeze meanwhile.
         menu.addAction(QIcon.fromTheme("view-list-icons"), "Show shelf",
                        lambda: launch(ACTION_PREFIX + "shelf", []))
+        menu.addAction(QIcon.fromTheme("hala"), "Wheel for copied files",
+                       lambda: subprocess.Popen([*SELF, "wheel", "--clipboard"],
+                                                stdin=subprocess.DEVNULL,
+                                                start_new_session=True))
         menu.addSeparator()
         menu.addAction("Quit", self.app.quit)
         tray.setContextMenu(menu)

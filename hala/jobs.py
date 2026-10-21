@@ -44,6 +44,7 @@ class Job:
     progress: float = 0.0
     output: Path | None = None
     error: str | None = None
+    notes: list[str] = field(default_factory=list)  # see runner.Context.notes
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
     # Tool jobs: target is the tool's name; a combining tool (merge, join) gets every input
     # in one job, with src being the first.
@@ -89,10 +90,12 @@ class JobQueue:
         try:
             if job.tool:
                 output = run_tool(tool(job.target), job.inputs, job.params, outdir=job.outdir,
-                                  on_progress=on_progress, cancel_event=job.cancel_event)
+                                  on_progress=on_progress, cancel_event=job.cancel_event,
+                                  notes=job.notes)
             else:
                 output = convert_file(job.src, job.target, outdir=job.outdir,
-                                      on_progress=on_progress, cancel_event=job.cancel_event)
+                                      on_progress=on_progress, cancel_event=job.cancel_event,
+                                      notes=job.notes)
             job.output, job.status = output, Status.DONE
         except Cancelled:
             job.status = Status.CANCELLED

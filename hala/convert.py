@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import formats as f
+from . import limits
 from .registry import route_for, targets_for
 from .runner import Context, ConversionError
 
@@ -25,7 +26,8 @@ STALE_AFTER_S = 24 * 3600
 
 def convert_file(src: Path, dst_ext: str, *, outdir: Path | None = None,
                  on_progress: Callable[[float], None] | None = None,
-                 cancel_event: threading.Event | None = None) -> Path:
+                 cancel_event: threading.Event | None = None,
+                 notes: list[str] | None = None) -> Path:
     """Convert src to dst_ext next to it (or into outdir). Never overwrites; returns the result."""
     src = src.expanduser().resolve()
     if not src.exists():
@@ -39,14 +41,17 @@ def convert_file(src: Path, dst_ext: str, *, outdir: Path | None = None,
                               f"(it can become: {offered})")
     return produce(src, lambda ctx: route.engine(ctx, src, dst_ext),
                    lambda produced: _final_name(src, dst_ext, produced),
-                   outdir=outdir, on_progress=on_progress, cancel_event=cancel_event)
+                   outdir=outdir, on_progress=on_progress, cancel_event=cancel_event,
+                   notes=notes)
 
 
 def produce(src: Path, work: Callable[[Context], Path], name: Callable[[Path], str], *,
             outdir: Path | None = None, on_progress: Callable[[float], None] | None = None,
-            cancel_event: threading.Event | None = None) -> Path:
+            cancel_event: threading.Event | None = None,
+            notes: list[str] | None = None) -> Path:
     """Run work in a scratch dir beside src (or in outdir), then move what it made into place
-    under name(produced), never overwriting anything. Shared by conversions and tools."""
+    under name(produced), never overwriting anything. Shared by conversions and tools. The
+    engine's notes (Context.note) are added to notes."""
     parent = (outdir.expanduser().resolve() if outdir else src.parent)
     try:
         parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +61,11 @@ def produce(src: Path, work: Callable[[Context], Path], name: Callable[[Path], s
         raise ConversionError(f"can't write to {parent}: {exc.strerror} "
                               "(pick another folder with -o)") from None
     _sweep_stale(parent)
+    try:
+        limits.check_free_space(parent, src.stat().st_size if src.is_file() else 0)
+    except ConversionError:
+        _remove_tree(workdir)
+        raise
     ctx = Context(workdir, on_progress=on_progress or (lambda _f: None),
                   cancel_event=cancel_event or threading.Event())
     try:
@@ -63,6 +73,8 @@ def produce(src: Path, work: Callable[[Context], Path], name: Callable[[Path], s
         ctx.check_cancelled()  # a cancel during a pure-Python step must not end up "done"
         final = _place(produced, parent, name(produced))
         ctx.progress(1.0)
+        if notes is not None:
+            notes.extend(ctx.notes)
         return final
     finally:
         _remove_tree(workdir)
