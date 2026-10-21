@@ -221,12 +221,14 @@ def build_menus(exe: str, db: MimeDb | None = None) -> dict[str, str]:
     return menus
 
 
-# Top level, for any files: the wheel without dragging to the screen edge.
+# Top level of the right-click menu, for any files: the wheel without dragging to the screen
+# edge. Without X-KDE-Priority=TopLevel, Dolphin files it under "Actions".
 WHEEL_MENU = """[Desktop Entry]
 Type=Service
 X-Hala-Menu=wheel
 X-KDE-ServiceTypes=KonqPopupMenu/Plugin
 X-KDE-Protocols=file
+X-KDE-Priority=TopLevel
 MimeType=all/all;
 Icon=hala
 Actions=wheel;
@@ -282,7 +284,7 @@ Icon=view-list-icons
 Exec="{exe}" shelf
 """
 
-# hala:// links (the home dashboard's tile) start Hala like the app menu does. A link needs
+# hala:// links (e.g. a tile on a web dashboard) start Hala like the app menu does. A link needs
 # its own entry: with %F, KDE would try to download the link as a file first.
 LINK_ENTRY = """[Desktop Entry]
 Type=Application

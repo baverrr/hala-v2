@@ -5,10 +5,11 @@ notes about pictures a document had to leave out."""
 from __future__ import annotations
 
 import gzip
+import importlib.util
 import io
 import json
 import os
-import shutil
+import re
 import subprocess
 import tarfile
 import threading
@@ -35,6 +36,9 @@ from hala.tools import run_tool, tool
 _app = QApplication.instance() or QApplication([])
 assert isinstance(_app, QApplication)
 APP: QApplication = _app
+# What documents.pandoc checks (the weasyprint command can be missing while the module is there).
+NEEDS_WEASYPRINT = pytest.mark.skipif(importlib.util.find_spec("weasyprint") is None,
+                                      reason="WeasyPrint isn't installed")
 
 
 # --- the wheel without dragging -------------------------------------------------------------
@@ -84,7 +88,7 @@ def test_wheel_command_and_menus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     menus = servicemenus.build_menus("/usr/bin/hala")
     wheel = menus["hala-wheel.desktop"]
     assert "MimeType=all/all;" in wheel and 'Exec="/usr/bin/hala" wheel %F' in wheel
-    assert "X-KDE-Submenu" not in wheel  # top level, next to Open With
+    assert "X-KDE-Submenu" not in wheel and "X-KDE-Priority=TopLevel" in wheel  # not under Actions
     assert 'wheel --clipboard' in servicemenus.APP_ENTRY
 
     for name in ("MENU_DIR", "APP_DIR", "ICON_DIR", "SHORTCUT_DIR"):
@@ -135,7 +139,7 @@ def test_two_conversions_get_two_profiles(tmp_path: Path, monkeypatch: pytest.Mo
 # --- markup straight to PDF, and pictures left out ------------------------------------------
 
 
-@pytest.mark.skipif(shutil.which("weasyprint") is None, reason="WeasyPrint isn't installed")
+@NEEDS_WEASYPRINT
 def test_markdown_to_pdf_with_weasyprint(tmp_path: Path) -> None:
     src = tmp_path / "notes.md"
     src.write_text("---\nheader-includes: '<link rel=\"stylesheet\" href=\"http://127.0.0.1:9/x.css\">'\n"
@@ -145,9 +149,11 @@ def test_markdown_to_pdf_with_weasyprint(tmp_path: Path) -> None:
     assert pdf.read_bytes().startswith(b"%PDF")
     text = subprocess.run(["pdftotext", pdf, "-"], capture_output=True, text=True).stdout
     assert "Title" in text
+    hostname = Path("/etc/hostname").read_text().strip()
+    assert not hostname or hostname not in text  # the raw HTML's file:// URL wasn't read
 
 
-@pytest.mark.skipif(shutil.which("weasyprint") is None, reason="WeasyPrint isn't installed")
+@NEEDS_WEASYPRINT
 def test_weasyprint_reads_only_the_documents_folder(tmp_path: Path,
                                                     samples: dict[str, Path]) -> None:
     docs = tmp_path / "docs"
@@ -483,3 +489,172 @@ def test_unedited_pages_are_not_kept_in_memory(tmp_path: Path) -> None:
     assert window.doc.edited  # page 1's edit is still there
     window.pdf.mark_clean()  # (so closing doesn't ask)
     window.close()
+
+
+# --- password-protected PDFs ----------------------------------------------------------------
+
+
+@pytest.fixture
+def locked(tmp_path: Path) -> dict[str, Path]:
+    """The same two-page PDF plain, with a password ("sesame pw", spaces and all), and with
+    only restrictions (it opens without a password but forbids printing)."""
+    plain = _text_pdf(tmp_path / "plain.pdf", ["FIRST page", "SECOND page"])
+    pw = tmp_path / "pw.pdf"
+    _sh("qpdf", "--encrypt", "--user-password=sesame pw", "--owner-password=owner", "--bits=256",
+        "--", plain, pw)
+    restricted = tmp_path / "restricted.pdf"
+    _sh("qpdf", "--encrypt", "--owner-password=owner", "--bits=256", "--print=none", "--",
+        plain, restricted)
+    return {"plain": plain, "pw": pw, "restricted": restricted}
+
+
+def test_unlock_tool(locked: dict[str, Path]) -> None:
+    from hala.engines import pdf
+
+    unlock = tool("unlock")
+    with pytest.raises(pdf.PasswordNeeded, match="needs its password"):
+        run_tool(unlock, [locked["pw"]])
+    with pytest.raises(pdf.WrongPassword, match="wrong password"):
+        run_tool(unlock, [locked["pw"]], {"password": "sesame"})
+    out = run_tool(unlock, [locked["pw"]], {"password": "sesame pw"})
+    assert out.name == "pw (unlocked).pdf"
+    assert pdf.encryption(out) == pdf.NOT_ENCRYPTED and "SECOND" in _pdf_text(out, 2)
+    freed = run_tool(unlock, [locked["restricted"]])  # no password needed, limits removed
+    assert pdf.encryption(freed) == pdf.NOT_ENCRYPTED
+    with pytest.raises(ConversionError, match="isn't password-protected"):
+        run_tool(unlock, [locked["plain"]])
+
+
+def test_the_password_never_goes_on_a_command_line(tmp_path: Path) -> None:
+    from hala.engines import pdf
+
+    cmd = pdf.unlock_command(tmp_path / "a.pdf", tmp_path / "b.pdf")
+    assert "--password-file=-" in cmd and not any("sesame" in part for part in cmd)
+
+
+def test_other_tools_say_to_unlock_first(locked: dict[str, Path]) -> None:
+    for job in (lambda: convert_file(locked["pw"], "png"),
+                lambda: convert_file(locked["pw"], "txt"),
+                lambda: run_tool(tool("compress"), [locked["pw"]], {"size": 0.001}),
+                lambda: run_tool(tool("split-pdf"), [locked["pw"]]),
+                lambda: run_tool(tool("read-qr"), [locked["pw"]])):
+        with pytest.raises(ConversionError, match="password-protected: unlock it first"):
+            job()
+    assert convert_file(locked["restricted"], "txt").read_text().count("page") == 2
+
+
+def test_editor_opens_a_password_protected_pdf(locked: dict[str, Path]) -> None:
+    from PySide6.QtCore import QRect
+
+    from hala.editing import PdfPages, Step, save_pdf_copy
+    from hala.engines import pdf
+
+    with pytest.raises(pdf.PasswordNeeded):
+        PdfPages(locked["pw"])
+    with pytest.raises(pdf.WrongPassword):
+        PdfPages(locked["pw"], "nope")
+    pages = PdfPages(locked["pw"], "sesame pw")
+    assert pages.unlocked and pages.count == 2 and pages.source != locked["pw"]
+    unlocked_copy = pages.source
+    assert unlocked_copy.parent.stat().st_mode & 0o077 == 0  # private scratch folder
+    pages.page(0).add(Step("black", rect=QRect(0, 0, 40, 40)))
+    out = save_pdf_copy(pages)
+    pages.close()
+    assert out.name == "pw (edited).pdf" and pdf.encryption(out) == pdf.NOT_ENCRYPTED
+    assert "SECOND" in _pdf_text(out, 2)
+    assert not unlocked_copy.exists()  # the unlocked copy is gone with the editor
+
+
+def test_editor_asks_for_the_password_and_retries(locked: dict[str, Path],
+                                                  monkeypatch: pytest.MonkeyPatch) -> None:
+    from PySide6.QtWidgets import QInputDialog
+
+    from hala.gui import editor
+
+    answers = iter([("wrong", True), ("sesame pw", True)])
+    prompts: list[str] = []
+
+    def ask(_parent: object, _title: str, label: str, *_a: object) -> tuple[str, bool]:
+        prompts.append(label)
+        return next(answers)
+
+    monkeypatch.setattr(QInputDialog, "getText", ask)
+    window = editor._open(locked["pw"])
+    assert window is not None and window.pdf is not None and window.pdf.count == 2
+    assert "password-protected" in prompts[0] and "doesn't open" in prompts[1]
+    window.close()
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a: ("", False))
+    assert editor._open(locked["pw"]) is None  # cancelled
+
+
+def test_password_fields_are_masked_and_kept_exactly(locked: dict[str, Path]) -> None:
+    from PySide6.QtWidgets import QLineEdit
+
+    from hala.gui.dialog import ToolDialog
+
+    dialog = ToolDialog(tool("unlock"), [locked["pw"]])
+    field = dialog.fields["password"]
+    assert isinstance(field, QLineEdit) and field.echoMode() == QLineEdit.EchoMode.Password
+    field.setText(" sesame pw ")
+    assert dialog.values()["password"] == " sesame pw "  # not trimmed
+    dialog.close()
+
+
+def test_passwords_stay_out_of_the_log(locked: dict[str, Path], tmp_path: Path,
+                                       monkeypatch: pytest.MonkeyPatch) -> None:
+    from hala import desktop
+
+    monkeypatch.setattr(desktop, "LOG_FILE", tmp_path / "last-run.log")
+    monkeypatch.setattr(desktop.log, "handlers", [])
+
+    class NoBatch:
+        def __init__(self, *_a: object, **_k: object) -> None:
+            pass
+
+        def start(self) -> int:
+            return 0
+
+    monkeypatch.setattr(desktop, "Batch", NoBatch)
+    desktop.run([locked["pw"]], None, tool_name="unlock", ask=False,
+                params={"password": "sesame pw"})
+    for handler in desktop.log.handlers:
+        handler.flush()
+    text = (tmp_path / "last-run.log").read_text()
+    assert "unlock on 1 file" in text and "sesame" not in text and "(hidden)" in text
+
+
+# --- Markup to PDF: Hala's print stylesheet -------------------------------------------------
+
+
+@NEEDS_WEASYPRINT
+def test_markup_pdfs_get_page_numbers_and_the_print_style(tmp_path: Path) -> None:
+    src = tmp_path / "plan.md"
+    src.write_text("# Plan\n\n" + "A paragraph of text. " * 400 + "\n\n| a | b |\n|---|---|\n"
+                   "| 1 | 2 |\n")
+    pdf = convert_file(src, "pdf")
+    pages = int(next(line.split()[1] for line in subprocess.run(
+        ["pdfinfo", pdf], capture_output=True, text=True).stdout.splitlines()
+        if line.startswith("Pages:")))
+    assert pages >= 2
+    squash = str.maketrans("", "", " ")  # pdftotext may drop the spaces around the slash
+    assert f"1/{pages}" in _pdf_text(pdf, 1).translate(squash)
+    assert f"{pages}/{pages}" in _pdf_text(pdf, pages).translate(squash)
+    fonts = subprocess.run(["pdffonts", pdf], capture_output=True, text=True).stdout
+    assert re.search(r"(Noto|DejaVu)-?Serif", fonts)  # the body type, not a default
+
+
+def test_the_run_log_is_written_despite_the_librarys_null_handler(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Found in the live check (2026-10-21): hala/__init__.py's NullHandler made _setup_log
+    # think logging was already set up, so last-run.log was never written.
+    import logging
+
+    from hala import desktop
+
+    monkeypatch.setattr(desktop, "LOG_FILE", tmp_path / "last-run.log")
+    monkeypatch.setattr(desktop.log, "handlers", [logging.NullHandler()])  # as after import
+    desktop._setup_log()
+    desktop.log.info("action copy on 1 file(s)")
+    for handler in desktop.log.handlers:
+        handler.flush()
+    assert "action copy on 1 file(s)" in (tmp_path / "last-run.log").read_text()

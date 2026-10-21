@@ -13,9 +13,9 @@ from dataclasses import replace
 from pathlib import Path
 
 from .. import formats as f
-from ..engines import images, media
-from ..runner import Context, ConversionError
-from . import Param, Params, Tool
+from ..engines import images, media, pdf
+from ..runner import Cancelled, Context, ConversionError
+from . import Param, Params, Tool, pdftools
 
 LOSSY_IMAGES = ("jpg", "webp", "heic", "avif")
 LOSSY_AUDIO = {"mp3": ("libmp3lame",), "m4a": ("aac",), "ogg": ("libvorbis",),
@@ -42,7 +42,8 @@ def _half_size_mb(files: list[Path]) -> float:
 SIZE = Param("size", "Compress to", "float", 10.0, "target size of each file", unit="MB",
              suggest=_half_size_mb)
 OTHER_FORMAT = Param("reformat", "Allow a smaller format", "bool", False,
-                     "pictures may become WebP and sound Opus when that's what fits",
+                     "pictures may also become WebP and sound Opus when that's what fits "
+                     "(PNG, TIFF and BMP always become JPG, and lossless sound M4A)",
                      only_for=frozenset({*f.IMAGE_IN, *f.AUDIO_IN}))
 
 
@@ -76,7 +77,7 @@ def _image(ctx: Context, src: Path, target: int, other: bool) -> Path:
         tries.append(("webp", "true"))
     for i, (fmt, strip) in enumerate(tries):
         if (out := _best_quality(ctx, staged, fmt, strip, target)) is not None:
-            return out
+            return _image_note(ctx, src, out)
         ctx.progress(0.1 * (i + 1))
     fmt = tries[-1][0]  # the smallest kind tried: shrink that one
     out = ctx.workdir / f"out.{fmt}"
@@ -87,9 +88,34 @@ def _image(ctx: Context, src: Path, target: int, other: bool) -> Path:
         scaled = ctx.workdir / "scaled.v"
         ctx.run(["vips", "resize", staged, scaled, f"{scale:.4f}"])
         if (found := _best_quality(ctx, scaled, fmt, "true", target)) is not None:
-            return found
+            return _image_note(ctx, src, found)
         ctx.progress(min(0.9, 0.4 + 0.1 * attempt))
     raise ConversionError("couldn't get this image that small")
+
+
+def _image_note(ctx: Context, src: Path, out: Path) -> Path:
+    """Say so when the compressed copy is another kind of picture than the original."""
+    ext, out_ext = f.ext_of(src), f.ext_of(out)
+    if out_ext != ext:
+        why = ("it has no quality setting to lower" if out_ext == "jpg"
+               else "that's what fitted")
+        lost = ""
+        if out_ext == "jpg" and _has_alpha(ctx, src):
+            lost = "; JPG has no transparency, so any transparent parts are white now"
+        ctx.note(f"the compressed copy of {src.name} is {out_ext.upper()} instead of "
+                 f"{ext.upper()} ({why}){lost}")
+    return out
+
+
+def _has_alpha(ctx: Context, src: Path) -> bool:
+    try:
+        bands = int(ctx.run(["vipsheader", "-f", "bands", src]).strip())
+        interpretation = ctx.run(["vipsheader", "-f", "interpretation", src]).strip()
+    except Cancelled:
+        raise
+    except (ConversionError, ValueError):
+        return False
+    return bands == 2 or (bands == 4 and interpretation.lower() != "cmyk") or bands > 4
 
 
 def _best_quality(ctx: Context, source: Path, fmt: str, strip: str,
@@ -120,7 +146,9 @@ def _video(ctx: Context, src: Path, target: int) -> Path:
     duration = media._duration(info)
     if duration <= 0:
         raise ConversionError("can't tell how long this video is")
-    has_audio = any(s.get("codec_type") == "audio" for s in info.get("streams", []))
+    streams = info.get("streams", [])
+    kinds = [s.get("codec_type") for s in streams]
+    has_audio = "audio" in kinds
     total_kbps = target * 8 * HEADROOM / duration / 1000
     audio = ((128, 2) if total_kbps > 1000 else (64, 2) if total_kbps > 300 else (32, 1)
              ) if has_audio else (0, 0)
@@ -134,9 +162,32 @@ def _video(ctx: Context, src: Path, target: int) -> Path:
         _encode_video(ctx, src, out, video_kbps, audio, duration, attempt)
         size = out.stat().st_size
         if size <= target:
+            _video_note(ctx, src, kinds)
             return out
         video_kbps = int(video_kbps * target / size * 0.95)  # overshot: aim lower and redo
     raise ConversionError(f"couldn't get this video under {target / 1e6:g} MB")
+
+
+def _video_note(ctx: Context, src: Path, kinds: list[str | None]) -> None:
+    """Say what the MP4 doesn't have that the original did."""
+    left = []
+    if (extra := kinds.count("audio") - 1) > 0:
+        left.append(f"{extra} more sound track{'s' * (extra > 1)}")
+    if subs := kinds.count("subtitle"):
+        left.append(f"{subs} subtitle track{'s' * (subs > 1)}")
+    if others := sum(1 for k in kinds if k in ("attachment", "data")):
+        left.append(f"{others} attachment{'s' * (others > 1)} or data stream{'s' * (others > 1)}")
+    if (extra_video := kinds.count("video") - 1) > 0:
+        left.append(f"{extra_video} more video stream{'s' * (extra_video > 1)}")
+    ext = f.ext_of(src)
+    parts = []
+    if ext != "mp4":
+        parts.append(f"the compressed copy of {src.name} is MP4 instead of {ext.upper()}")
+    if left:
+        parts.append("left out: " + ", ".join(left) + " (only the first picture and sound "
+                     "are kept)")
+    if parts:
+        ctx.note("; ".join(parts))
 
 
 def _encode_video(ctx: Context, src: Path, out: Path, video_kbps: int,
@@ -174,10 +225,7 @@ def _audio(ctx: Context, src: Path, target: int, other: bool) -> Path:
     if other and kbps < MIN_AUDIO_KBPS:
         out_ext, floor = "opus", MIN_OPUS_KBPS
     if kbps < floor:
-        hint = "" if other else "; Allow a smaller format reaches 12 kb/s with Opus"
-        raise ConversionError(f"too small for {duration:.0f} s of audio ({floor} kb/s, about "
-                              f"{floor * 1000 * duration / 8 / 1e6:.1f} MB, is the least that's "
-                              f"still listenable{hint})")
+        raise _audio_too_small(duration, floor, other)
     codec = LOSSY_AUDIO[out_ext][0]
     out = ctx.workdir / f"out.{out_ext}"
     for _attempt in range(ENCODE_TRIES):
@@ -186,22 +234,54 @@ def _audio(ctx: Context, src: Path, target: int, other: bool) -> Path:
                             "-b:a", f"{min(kbps, 320)}k", *mono, out], duration)
         size = out.stat().st_size
         if size <= target:
+            _audio_note(ctx, src, out, info)
             return out
         kbps = int(kbps * target / size * 0.95)  # a variable-rate codec overshot
         if kbps < floor:
-            break
+            raise _audio_too_small(duration, floor, other)
     raise ConversionError(f"couldn't get this recording under {target / 1e6:g} MB")
+
+
+def _audio_too_small(duration: float, floor: int, other: bool) -> ConversionError:
+    hint = "" if other else "; Allow a smaller format reaches 12 kb/s with Opus"
+    return ConversionError(f"too small for {duration:.0f} s of audio ({floor} kb/s, about "
+                           f"{floor * 1000 * duration / 8 / 1e6:.1f} MB, is the least that's "
+                           f"still listenable{hint})")
+
+
+def _audio_note(ctx: Context, src: Path, out: Path, info: dict) -> None:
+    ext, out_ext = f.ext_of(src), f.ext_of(out)
+    parts = []
+    if out_ext != ext:
+        why = ("that's what fitted" if out_ext == "opus"
+               else f"{ext.upper()} can't trade quality for size")
+        parts.append(f"the compressed copy of {src.name} is {out_ext.upper()} instead of "
+                     f"{ext.upper()} ({why})")
+    extra = sum(1 for s in info.get("streams", []) if s.get("codec_type") == "audio") - 1
+    if extra > 0:
+        parts.append(f"left out: {extra} more sound track{'s' * (extra > 1)}")
+    if parts:
+        ctx.note("; ".join(parts))
 
 
 def _pdf(ctx: Context, src: Path, target: int) -> Path:
     """A lossless repack if that's enough, else the best-looking Ghostscript setting that fits:
     the presets, then lower picture resolutions still."""
+    pdf.require_unlocked(src)
     repacked = ctx.workdir / "repacked.pdf"
-    ctx.run(["qpdf", "--recompress-flate", "--compression-level=9",
-             "--object-streams=generate", src, repacked])
-    smallest = repacked.stat().st_size
-    if smallest <= target:
-        return repacked
+    try:
+        pdftools.qpdf(ctx, ["--recompress-flate", "--compression-level=9",
+                            "--object-streams=generate", src, repacked], repacked)
+    except Cancelled:
+        raise
+    except ConversionError:
+        # qpdf couldn't read it at all: Ghostscript may still manage, from the original.
+        repacked.unlink(missing_ok=True)
+        source, smallest = src, src.stat().st_size
+    else:
+        source, smallest = repacked, repacked.stat().st_size
+        if smallest <= target:
+            return repacked
     steps = [[f"-dPDFSETTINGS={preset}"] for preset in PDF_PRESETS]
     steps += [["-dPDFSETTINGS=/screen", "-dDownsampleColorImages=true",
                "-dDownsampleGrayImages=true", "-dDownsampleMonoImages=true",
@@ -211,7 +291,7 @@ def _pdf(ctx: Context, src: Path, target: int) -> Path:
     for i, settings in enumerate(steps):
         out = ctx.workdir / f"out{i}.pdf"
         ctx.run(["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=pdfwrite",
-                 "-dCompatibilityLevel=1.6", *settings, f"-sOutputFile={out}", repacked])
+                 "-dCompatibilityLevel=1.6", *settings, f"-sOutputFile={out}", source])
         ctx.progress((i + 1) / len(steps))
         size = out.stat().st_size
         if size <= target:

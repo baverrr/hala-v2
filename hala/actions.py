@@ -242,7 +242,10 @@ def send_to_phone(files: Sequence[Path], device_id: str) -> list[tuple[Path, str
 def _zip_for_phone(folder: Path) -> Path:
     from .tools import run_tool, tool
 
-    PHONE_ZIPS.mkdir(parents=True, exist_ok=True)
+    try:
+        PHONE_ZIPS.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ConversionError(f"can't make {PHONE_ZIPS}: {exc.strerror}") from exc
     cutoff = time.time() - PHONE_ZIP_DAYS * 86400
     for old in PHONE_ZIPS.glob("*.zip"):
         try:

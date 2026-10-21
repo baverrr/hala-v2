@@ -16,7 +16,7 @@ from pathlib import Path
 from . import __version__
 from . import formats as f
 from .actions import ACTIONS
-from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status
+from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status, clean_note
 from .registry import ANY, ROUTES, common_targets, targets_for
 
 EXTERNAL_TOOLS = {
@@ -86,6 +86,15 @@ def cmd_tool(args: argparse.Namespace) -> int:
         return 0
     given = {p.name: getattr(args, p.name) for p in chosen.params
              if getattr(args, p.name, None) is not None}
+    for param in chosen.params:
+        # A password on the command line shows up in `ps` for every user: ask for it instead.
+        if param.kind == "password" and param.name not in given and sys.stdin.isatty():
+            from .engines.pdf import NEEDS_PASSWORD, encryption
+
+            if any(encryption(p) == NEEDS_PASSWORD for p in files):
+                import getpass
+
+                given[param.name] = getpass.getpass(f"{param.label}: ")
     outdir = Path(args.outdir) if args.outdir else None
     if chosen.combine:
         return _run_queue(args, lambda queue: [queue.submit_tool(chosen.name, files, given,
@@ -126,7 +135,7 @@ def _run_queue(args: argparse.Namespace, submit: Submit) -> int:
             elif job.status is Status.DONE:
                 print(f"✓ {job.src.name} → {job.output}")
                 for note in job.notes:
-                    print(f"  note: {note}")
+                    print(f"  note: {clean_note(note)}")
             elif job.status is Status.FAILED:
                 print(f"✗ {job.src.name}: {job.error}", file=sys.stderr)
             else:
@@ -283,7 +292,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="use the files last copied (Ctrl+C) instead; the global shortcut does this")
     p.set_defaults(func=cmd_wheel)
 
-    p = sub.add_parser("edit", help="crop, annotate or redact pictures (saves a copy)")
+    p = sub.add_parser("edit", help="crop, annotate or redact pictures or PDFs (saves a copy)")
     p.add_argument("files", nargs="+")
     p.set_defaults(func=cmd_edit)
 
@@ -298,7 +307,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("files", nargs="*")
     p.set_defaults(func=cmd_shelf)
 
-    p = sub.add_parser("install-menus", help="add (or --remove) the Dolphin Convert to menus")
+    p = sub.add_parser("install-menus",
+                       help="add (or --remove) the Dolphin menus, app entry and shortcut")
     p.add_argument("--remove", action="store_true")
     p.set_defaults(func=cmd_install_menus)
 
@@ -329,6 +339,10 @@ def _add_tool_parsers(sub: argparse._SubParsersAction) -> None:
                                 help=param.help)
             elif param.kind == "choice":
                 tp.add_argument(flag, choices=param.choices, help=param.help)
+            elif param.kind == "password":
+                tp.add_argument(flag, metavar="PASSWORD",
+                                help=param.help + " (leave it out to be asked; on the command "
+                                "line, other users can see it)")
             else:
                 tp.add_argument(flag, metavar=(param.unit or param.kind).upper(),
                                 help=param.help + unit)

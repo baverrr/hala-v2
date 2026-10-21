@@ -14,20 +14,21 @@ on it, and they stay there.
 
 ## What stays on your computer
 
-Hala writes a few small files in your home folder, readable only by your user account. Some of
+Hala writes a few small files in your private cache folder (`~/.cache`, which only your user
+account can open). Some of
 them contain the **names and folders of files you converted**:
 
 | File | What's in it |
 |---|---|
 | `~/.cache/hala/last-run.log` | The last conversion or tool run from the menus or the wheel: file paths, settings and any error messages. Replaced on each run. |
-| `~/.cache/hala/dropzone.log`, `shelf.log`, `editor.log` | What the drop zone, shelf and editor did in their last session, including file paths. Replaced each time they start. |
-| `~/.cache/hala/crash.log` | Details of unexpected errors, if any happened, including file paths. It grows until you delete it. |
+| `~/.cache/hala/dropzone.log`, `shelf.log` | What the drop zone and shelf did in their last session, including file paths. Replaced each time they start. |
+| `~/.cache/hala/crash.log`, `editor.log` | Details of unexpected errors, if any happened, including file paths. They grow until you delete them. |
 | `~/.cache/hala/last-folder` | The last folder you picked for **Copy to** / **Move to**. |
 | `~/.cache/hala/lo-profile/`, `lo-profile-2/` | LibreOffice's settings for Hala's own conversions, kept apart from your normal LibreOffice. |
-| `~/.cache/hala/phone/` | Zips of folders you sent with **Phone**, kept while KDE Connect sends them and deleted a day later. |
-| `~/.cache/hala/*.lock`, `run/` | Lock files and the shelf's local socket, so only one drop zone and one shelf run at a time. |
+| `~/.cache/hala/phone/` | Zips of folders you sent with **Phone**, kept while KDE Connect sends them; ones over a day old are deleted the next time you send a folder. |
+| `~/.cache/hala/*.lock`, and the shelf's socket in `/run/user/…` (or `~/.cache/hala/run/`) | Lock files, so only one drop zone and one shelf run at a time and two LibreOffice runs don't share a profile. |
 | `~/.config/autostart/hala-dropzone.desktop` | Only if you turned on `hala dropzone --autostart on`. |
-| `.hala-…` folders beside your files | Scratch space while a job runs. They're removed when it finishes, or a day later if Hala was killed mid-job. |
+| `.hala-…` folders beside your files | Scratch space while a job runs. They're removed when it finishes, or, if Hala was killed mid-job, by the next job in that folder once they're a day old. |
 
 To remove all of it, delete `~/.cache/hala` (and the autostart file, if you made one). Removing
 the app (`sudo apt remove hala`) doesn't delete your own converted files.
@@ -48,8 +49,8 @@ Only what you send, when you send it:
   copied to the clipboard if you press **Copy**. The wheel shortcut reads which files you last
   copied, only when you press it. All of this stays on your computer.
 
-LibreOffice and pandoc are set up so that documents can't make them fetch anything from the
-network, and ffmpeg is limited to local files.
+LibreOffice, pandoc and WeasyPrint are set up so that documents can't make them fetch anything
+from the network, and ffmpeg is limited to local files.
 
 ## Children
 

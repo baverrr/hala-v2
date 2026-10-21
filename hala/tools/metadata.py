@@ -12,8 +12,9 @@ import subprocess
 from pathlib import Path
 
 from .. import formats as f
+from ..engines import pdf
 from ..runner import Context, ConversionError, local_inputs
-from . import Param, Params, Tool
+from . import Param, Params, Tool, pdftools
 
 EXIFTOOL_TYPES = frozenset({"jpg", "png", "webp", "heic", "avif", "tiff", "gif", "pdf"})
 MEDIA_TYPES = frozenset({*f.VIDEO_IN, *f.AUDIO_IN})
@@ -68,8 +69,14 @@ def edit(ctx: Context, inputs: list[Path], params: Params) -> Path:
     sets = {k: params[k] for k in FIELDS if params.get(k)}
     if params["remove"] == "nothing" and not sets:
         raise ConversionError("nothing to change: pick what to remove or fill in a field")
+    if ext == "pdf":
+        pdf.require_unlocked(src)
     if ext in EXIFTOOL_TYPES:
-        shutil.copyfile(src, out)
+        if ext == "pdf":
+            # A rewritten copy: exiftool can't read a damaged PDF, which qpdf repairs.
+            pdftools.qpdf(ctx, [src, out], out)
+        else:
+            shutil.copyfile(src, out)
         cmd: list[str | Path] = ["exiftool", "-q", "-m", "-overwrite_original"]
         if params["remove"] == "everything":
             # Keep what changes how the picture looks: its rotation and colour profile.
@@ -84,7 +91,7 @@ def edit(ctx: Context, inputs: list[Path], params: Params) -> Path:
             # exiftool edits PDFs as appended updates that can be undone; rewrite it so the
             # removed metadata is really gone.
             clean = ctx.workdir / "clean.pdf"
-            ctx.run(["qpdf", "--linearize", out, clean])
+            pdftools.qpdf(ctx, ["--linearize", out, clean], clean)
             return clean
         return out
     cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", src,

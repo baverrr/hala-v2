@@ -71,14 +71,14 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 - **Around 70 input formats:** images (including HEIC, AVIF, WebP, JPEG XL and SVG), video,
   audio, subtitles, Word/Excel/PowerPoint and their LibreOffice and Apple counterparts,
   Markdown, HTML, e-books and notebooks, PDF, and archives (zip, 7z, rar, tar.*).
-- **Tools:** compress to a target size, remove or set metadata, merge and split PDFs, read QR
+- **Tools:** compress to a target size, remove or set metadata, merge, split and unlock PDFs, read QR
   codes and barcodes, normalize loudness, trim, split and join video and audio.
 - **Actions:** put files on the shelf, send them to your phone with KDE Connect, copy or move
   them to a folder, or zip them all, from bubbles under the wheel.
 - **Shelf:** a small floating window that holds files until you drag them somewhere else.
 - **Picture and PDF editor:** crop (with aspect presets), rotate, flip, arrows, lines,
   shapes, freehand, text, and redaction by black box or pixelation, with undo. PDFs are
-  edited page by page, and redacted pages are flattened so the text underneath is really gone.
+  edited page by page, and edited pages are flattened so the text underneath is really gone.
   It always saves a copy.
 - **Plasma-native feedback:** progress appears in Plasma's job tracker with a working Cancel
   button, and a notification offers **Open** or **Show in folder** when the work is done.
@@ -88,16 +88,16 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 
 ## Install
 
-Hala is made for **Ubuntu or Kubuntu 24.04 or later with KDE Plasma 6** (Wayland). It's built
+Hala is made for **Kubuntu 25.04 or later, or Ubuntu with KDE Plasma 6** (Wayland). It's built
 and tested on Ubuntu 26.04 with Plasma 6.6.
 
 ### From the release (recommended)
 
-Download `hala_0.3.0_all.deb` from the
+Download `hala_0.4.0_all.deb` from the
 [latest release](https://github.com/baverrr/hala-v2/releases/latest), then:
 
 ```bash
-sudo apt install ./hala_0.3.0_all.deb
+sudo apt install ./hala_0.4.0_all.deb
 ```
 
 apt also installs the converters Hala needs: ffmpeg, libvips, poppler, 7-Zip, qpdf,
@@ -120,8 +120,8 @@ To uninstall: `sudo apt remove hala`.
 ```bash
 git clone https://github.com/baverrr/hala-v2.git hala
 cd hala
-python3 packaging/build_deb.py --release      # makes dist/hala_0.3.0_all.deb
-sudo apt install ./dist/hala_0.3.0_all.deb
+python3 packaging/build_deb.py --release      # makes dist/hala_0.4.0_all.deb
+sudo apt install ./dist/hala_0.4.0_all.deb
 ```
 
 The package installs the `hala` command, the application-menu entry and icon, and the Dolphin
@@ -204,10 +204,11 @@ cleanly, and no half-written files are left behind.
 
 | Tool | What it does | Takes |
 |---|---|---|
-| **Compress** | Makes each file fit a size, e.g. 5 MB for an email, trying the best-looking way first. Pictures: the highest quality that fits, then without their metadata, then smaller. Video: a two-pass encode, lowering resolution (down to 360p), frame rate and sound as the size shrinks, and redone smaller if it overshoots. Audio: a lower bit rate, mono when it's low. PDFs: a lossless repack first, then Ghostscript presets, then lower picture resolutions. **Allow a smaller format** lets pictures become WebP and sound become Opus (down to 12 kb/s) when that's what fits. | pictures, video, audio, PDF |
+| **Compress** | Makes each file fit a size, e.g. 5 MB for an email, trying the best-looking way first. Pictures (PNG, TIFF and BMP become JPG, with transparency made white): the highest quality that fits, then without their metadata, then smaller. Video: a two-pass encode, lowering resolution (down to 360p), frame rate and sound as the size shrinks, and redone smaller if it overshoots. Audio (WAV, FLAC and other lossless sound become M4A): a lower bit rate, mono when it's low. PDFs: a lossless repack first, then Ghostscript presets, then lower picture resolutions. **Allow a smaller format** lets pictures become WebP and sound become Opus (down to 12 kb/s) when that's what fits. | pictures, video, audio, PDF |
 | **Metadata** | Removes **everything**, or only the **location**, or nothing. It can also set title, author and comment. Picture orientation and colour profile are kept. | pictures, PDF, video, audio |
 | **Merge PDF** | One PDF from several PDFs and/or pictures, in the order you choose in the dialog. | PDF, pictures (2+) |
 | **Split PDF** | One PDF per page, or per range (`1-3, 5, 8-`). | PDF |
+| **Unlock PDF** | A copy without the password (typed into a masked field, never put on a command line or in a log), or, for a PDF that opens without one, without its limits on printing and copying. Other PDF tools say when a file needs unlocking first. | PDF |
 | **Read QR** | Decodes QR codes and barcodes into a text file, shows the text in the notification, with a **Copy** button. | pictures, PDF |
 | **Normalize** | Evens out loudness to a target (−14 LUFS streaming, −16 podcasts, −23 broadcast) in two passes. | audio, video |
 | **Trim** | Keeps the part between a start and end time, with frame previews. **Frame-accurate** re-encodes for an exact cut; off, it's instant but cuts at a keyframe. Can also remove silence at the start and end. | video, audio |
@@ -271,8 +272,12 @@ page keeps its own edits and undo history. **Save copy** writes `name (edited).p
   selected, searched or copied out of the file. That's what makes the redaction real, but it
   also means those pages' text is no longer selectable.
 - **Pages you didn't touch are kept exactly as they were**, text and all.
-- **The original's metadata, bookmarks, attachments and form data aren't carried over**,
-  because they're common places for the information you meant to remove.
+- **The original's metadata, bookmarks and attached files aren't carried over**, because
+  they're common places for the information you meant to remove. Form fields and links on
+  pages you didn't edit are kept.
+
+A password-protected PDF asks for its password when it opens. The edited copy opens without
+one; the original keeps its password.
 
 ### Command line
 
@@ -289,6 +294,7 @@ hala tool compress --size 1 --reformat talk.mp3   # may become Opus to fit
 hala tool metadata --remove location *.jpg
 hala tool trim --start 0:05 --end 1:30 clip.mp4
 hala tool split-pdf --pages "1-3, 5" scan.pdf
+hala tool unlock statement.pdf           # asks for the password
 hala tool metadata --show photo.jpg      # print a file's title, author, location...
 hala shelf [FILES]                       # open the shelf, optionally with files
 hala action zip|copy|move|phone|shelf FILES
@@ -328,8 +334,8 @@ becomes audio by extracting its first sound track. `hala formats` prints the exa
 | Pictures | libvips (`vips`). EXIF rotation is applied, CMYK becomes sRGB, and transparency is flattened onto white for JPG. Pictures to PDF go through Hala's own small PDF writer. |
 | Video, audio, subtitles | ffmpeg. When the target container can hold the existing codecs, the file is rewrapped without re-encoding, which is fast and lossless. |
 | Office documents | LibreOffice in headless mode, with private profiles of its own: one per worker, so two documents convert at once. |
-| Markup and e-books | pandoc. PDFs are made from HTML by WeasyPrint, which may only open files in the document's own folder; without WeasyPrint they go through DOCX and LibreOffice. No LaTeX is needed. |
-| PDF | poppler (pages to pictures or text), qpdf (merge, split, metadata), Ghostscript (compression). |
+| Markup and e-books | pandoc. PDFs are made from HTML by WeasyPrint with Hala's print stylesheet (page numbers, readable type, tables, code), and it may only open pictures and fonts in the document's own folder; without WeasyPrint they go through DOCX and LibreOffice. No LaTeX is needed. |
+| PDF | poppler (pages to pictures or text), qpdf (merge, split, unlock, metadata, saving edited PDFs, the lossless repack in Compress), Ghostscript (compression). |
 | Metadata | exiftool for pictures and PDF; an ffmpeg stream copy for audio and video. |
 | QR codes | zbar. |
 | Archives | 7-Zip, Python's tarfile, GNU tar (for .tar.zst) and zipfile. |
@@ -344,8 +350,9 @@ finishing at once can't overwrite each other.
 Files come from anywhere, so Hala treats them as untrusted:
 
 - Documents can't pull other files into the output. pandoc parses inside its sandbox, so
-  include directives can't read files, and only pictures from the document's own folder are
-  embedded, never `~/.ssh/…` or a web address.
+  include directives can't read files, and only pictures inside the document's own folder (or
+  below it, but not in hidden folders like `.ssh`) are embedded, never absolute paths, `../`
+  paths, web addresses or other kinds of file.
 - A "picture" must really be one: Hala checks its bytes before any decoder sees it, so a script
   renamed `photo.jpg` never reaches ImageMagick or Ghostscript.
 - LibreOffice runs with macros and external links switched off, and ffmpeg may open only local
@@ -379,21 +386,22 @@ and [CodeQL](https://codeql.github.com/) scans every push.
   Pages/Numbers/Keynote files may not come out exactly as they look in the original app. The
   recommended Carlito and Caladea fonts fix the most common problem, Calibri and Cambria text
   reflowing.
-- **Markup to PDF is plain.** WeasyPrint's PDFs use pandoc's simple default style, and LaTeX
-  maths isn't typeset. Without WeasyPrint they go through Word format instead.
+- **No typeset maths in markup PDFs.** They get Hala's print style (page numbers, tables, code
+  blocks), but LaTeX maths stays as plain text. Without WeasyPrint they go through Word format.
 - **Pictures in documents must sit in the document's folder** (or below it) to be embedded.
   Absolute paths, `../` paths and web images are left out on purpose, as their alt text, and
   the result's notification says which ones.
 - **Compress has a floor.** If even its last step doesn't reach the size you asked for, it says
-  how small the file can get instead of producing a bad result. Pictures and sound only
-  change format when you tick **Allow a smaller format**; video always comes out as an H.264
-  MP4, whatever it was before (a WebM or MKV becomes an MP4).
+  how small the file can get instead of producing a bad result. Pictures that aren't already
+  JPG, WebP, HEIC or AVIF (PNG, TIFF, BMP…) always come out as JPG, and sound that isn't MP3,
+  M4A, OGG or Opus always comes out as M4A; **Allow a smaller format** also lets pictures
+  become WebP and sound become Opus. Video always comes out as an H.264 MP4 with one picture
+  and one sound track (a WebM or MKV becomes an MP4, and extra sound and subtitle tracks are
+  left out). The result's notification says when any of this happened.
 - **Edited PDF pages become pictures.** Their text can't be selected or searched any more, and
   their links and form fields are gone (unedited pages keep all of theirs). The saved copy has
-  no bookmarks, attachments or document metadata, and there's no crop or rotate for PDFs.
+  no bookmarks, attached files or document metadata, and there's no crop or rotate for PDFs.
   Saved copies are flat, so there are no layers to go back to.
-- **Password-protected PDFs can't be opened in the editor.** Remove the password first (for
-  example with `qpdf --decrypt --password=… in.pdf out.pdf`).
 - **Phone sending needs KDE Connect** with a paired phone on the same network.
 - **The newest parts have had the least real-world use:** the shelf, the action bubbles,
   phone sending, the wheel shortcut and PDF editing. They're tested, but mostly offscreen,
@@ -407,7 +415,7 @@ and [CodeQL](https://codeql.github.com/) scans every push.
 ```bash
 python3 -m venv --system-site-packages .venv    # PySide6 and PyGObject come from apt
 .venv/bin/pip install -e . pytest ruff
-.venv/bin/python -m pytest -q                   # ~360 tests, about 2 minutes
+.venv/bin/python -m pytest -q                   # ~460 tests, about 2–3 minutes
 .venv/bin/ruff check .
 hala install-menus                              # Dolphin menus + app entry for this checkout
 python3 tools/screenshots.py                    # re-render docs/*.png offscreen
@@ -423,9 +431,11 @@ The tests convert real sample files with the real tools (LibreOffice tests are m
 | `hala/cli.py` | the `hala` command |
 | `hala/registry.py`, `formats.py` | the conversion table |
 | `hala/convert.py`, `runner.py`, `jobs.py` | scratch folders, safe placement, running tools, the job queue |
+| `hala/limits.py` | size, free-space and zip-bomb limits |
 | `hala/engines/` | images, media, documents, PDF, archives |
 | `hala/tools/` | compress, metadata, PDF, QR, media edits, zip |
 | `hala/actions.py`, `desktop.py` | copy/move/phone actions; Plasma progress and notifications |
+| `hala/editing.py` | the editor's document model, PDF pages and saving |
 | `hala/gui/` | drop zone, wheel, dialogs, shelf, editor, layer-shell bindings |
 | `hala/servicemenus.py` | the generated Dolphin menus and app entry |
 | `packaging/` | the `.deb` builder and the icon generator |

@@ -112,6 +112,10 @@ class ToolDialog(QDialog):
             combo.setCurrentText(str(default))
             return combo
         line = QLineEdit()
+        if param.kind == "password":
+            line.setEchoMode(QLineEdit.EchoMode.Password)
+            line.setPlaceholderText(param.help)
+            return line
         if param.kind == "time":
             line.setText(format_time(default) if default else "")
             line.setPlaceholderText("0:00" if param.name != "end" else "the end")
@@ -178,7 +182,9 @@ class ToolDialog(QDialog):
             elif isinstance(widget, QComboBox):
                 out[name] = widget.currentText()
             elif isinstance(widget, QLineEdit):
-                out[name] = widget.text().strip()
+                # A password is taken exactly as typed: its spaces are part of it.
+                masked = widget.echoMode() == QLineEdit.EchoMode.Password
+                out[name] = widget.text() if masked else widget.text().strip()
         return out
 
     def ordered_files(self) -> list[Path]:

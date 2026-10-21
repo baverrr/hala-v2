@@ -72,21 +72,25 @@ class Context:
 
     def run(self, cmd: Sequence[str | os.PathLike[str]], *, cwd: Path | None = None,
             stdout_line: Callable[[str], None] | None = None,
-            env: dict[str, str] | None = None, timeout: float | None = None) -> str:
+            env: dict[str, str] | None = None, timeout: float | None = None,
+            stdin_data: bytes | None = None) -> str:
         """Run cmd at low priority and return its stdout.
 
         Raises Cancelled if the cancel event fires, and ConversionError (with the last 8 lines
         of stderr) if the tool fails or runs longer than timeout seconds.
         """
         return self.run_full(cmd, cwd=cwd, stdout_line=stdout_line, env=env,
-                             timeout=timeout)[0]
+                             timeout=timeout, stdin_data=stdin_data)[0]
 
     def run_full(self, cmd: Sequence[str | os.PathLike[str]], *, cwd: Path | None = None,
                  stdout_line: Callable[[str], None] | None = None,
                  env: dict[str, str] | None = None, timeout: float | None = None,
-                 ok_codes: Collection[int] = (0,)) -> tuple[str, str, int]:
+                 ok_codes: Collection[int] = (0,),
+                 stdin_data: bytes | None = None) -> tuple[str, str, int]:
         """Like run(), but returns (stdout, stderr, exit code) and accepts any exit code in
-        ok_codes (zbarimg exits 4 for "nothing found"; ffmpeg's loudnorm reports on stderr)."""
+        ok_codes (zbarimg exits 4 for "nothing found"; ffmpeg's loudnorm reports on stderr).
+        stdin_data is written to the tool's input (a password stays off the command line,
+        where any user could read it with ps)."""
         self.check_cancelled()
         args = local_inputs([str(a) for a in cmd])
         if not args:
@@ -95,10 +99,20 @@ class Context:
             require(tool)
         proc = subprocess.Popen(
             # Own process group, so killpg() reaches the tool and anything it spawns.
-            [*NICE, *args], cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            [*NICE, *args], cwd=cwd,
+            stdin=subprocess.DEVNULL if stdin_data is None else subprocess.PIPE,
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=True,
             env={**os.environ, **env} if env else None,
         )
+        if stdin_data is not None:
+            assert proc.stdin is not None
+            try:
+                proc.stdin.write(stdin_data)
+            except BrokenPipeError:
+                pass  # it exited without reading; its exit code says why
+            finally:
+                proc.stdin.close()
         # Drain stderr alongside stdout, so a chatty tool can't block on a full pipe.
         stderr_chunks: list[bytes] = []
         reader = threading.Thread(target=lambda: stderr_chunks.append(proc.stderr.read()),  # type: ignore[union-attr]
