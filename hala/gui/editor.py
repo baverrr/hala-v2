@@ -1,7 +1,9 @@
-"""`hala edit`: a small image editor - crop, rotate, annotate, redact.
+"""`hala edit`: a small editor for pictures and PDFs - crop, rotate, annotate, redact.
 
 The window only collects gestures; every change is a Step on a Document (hala/editing.py), so
 undo is trivial and what you see is exactly what gets saved. Saving never touches the original.
+A PDF is edited page by page (each page its own Document); crop, rotate and flip are left out
+for PDFs, as they'd change the page size, and edited pages are flattened when saved.
 """
 
 from __future__ import annotations
@@ -48,12 +50,14 @@ from ..editing import (
     DEFAULT_COLOR,
     Document,
     Kind,
+    PdfPages,
     Step,
     apply,
     load_image,
     output_ext,
     save_copy,
     save_exts,
+    save_pdf_copy,
 )
 from ..runner import ConversionError
 
@@ -309,7 +313,9 @@ class Editor(QMainWindow):
     def __init__(self, path: Path):
         super().__init__()
         self.path = path
-        self.doc = Document(load_image(path))
+        self.pdf = PdfPages(path) if f.ext_of(path) == "pdf" else None
+        self.page_index = 0
+        self.doc = self.pdf.page(0) if self.pdf else Document(load_image(path))
         self.canvas = Canvas(self.doc)
         self.setCentralWidget(self.canvas)
         self.setWindowIcon(QIcon.fromTheme("hala"))
@@ -338,6 +344,8 @@ class Editor(QMainWindow):
         group = QActionGroup(self)
         self.tool_actions: dict[str, QAction] = {}
         for key, label, icon, hint in TOOLS:
+            if key == "crop" and self.pdf:  # a PDF page keeps its size
+                continue
             action = QAction(QIcon.fromTheme(icon), label, self)
             action.setCheckable(True)
             action.setToolTip(f"{label} - {hint}")
@@ -379,15 +387,16 @@ class Editor(QMainWindow):
         self.crop_apply = self._action("Apply crop", "dialog-ok-apply", self.canvas.apply_crop)
         bar.addAction(self.crop_apply)
         bar.addSeparator()
-        bar.addAction(self._action("Rotate left", "object-rotate-left",
-                                   lambda: self.canvas.transform("rotate", 270), "Ctrl+["))
-        bar.addAction(self._action("Rotate right", "object-rotate-right",
-                                   lambda: self.canvas.transform("rotate", 90), "Ctrl+]"))
-        bar.addAction(self._action("Flip horizontally", "object-flip-horizontal",
-                                   lambda: self.canvas.transform("flip", 1)))
-        bar.addAction(self._action("Flip vertically", "object-flip-vertical",
-                                   lambda: self.canvas.transform("flip", 2)))
-        bar.addSeparator()
+        if self.pdf is None:
+            bar.addAction(self._action("Rotate left", "object-rotate-left",
+                                       lambda: self.canvas.transform("rotate", 270), "Ctrl+["))
+            bar.addAction(self._action("Rotate right", "object-rotate-right",
+                                       lambda: self.canvas.transform("rotate", 90), "Ctrl+]"))
+            bar.addAction(self._action("Flip horizontally", "object-flip-horizontal",
+                                       lambda: self.canvas.transform("flip", 1)))
+            bar.addAction(self._action("Flip vertically", "object-flip-vertical",
+                                       lambda: self.canvas.transform("flip", 2)))
+            bar.addSeparator()
         self.undo_action = self._action("Undo", "edit-undo", self._undo, "Ctrl+Z")
         self.redo_action = self._action("Redo", "edit-redo", self._redo, "Ctrl+Shift+Z")
         bar.addAction(self.undo_action)
@@ -397,6 +406,16 @@ class Editor(QMainWindow):
         bar.addAction(self._action("Save as…", "document-save-as", self.save_as,
                                    "Ctrl+Shift+S"))
         bar.addAction(self._action("Copy", "edit-copy", self.copy, "Ctrl+C"))
+        if self.pdf is not None:
+            bar.addSeparator()
+            self.prev_page = self._action("Previous page", "go-previous",
+                                          lambda: self.go_to(self.page_index - 1), "PgUp")
+            self.next_page = self._action("Next page", "go-next",
+                                          lambda: self.go_to(self.page_index + 1), "PgDown")
+            self.page_label = QLabel()
+            bar.addAction(self.prev_page)
+            bar.addWidget(self.page_label)
+            bar.addAction(self.next_page)
         self.status = QLabel()
         self.statusBar().addWidget(self.status, 1)
 
@@ -427,6 +446,28 @@ class Editor(QMainWindow):
 
     # --- state ------------------------------------------------------------------------------
 
+    def _modified(self) -> bool:
+        return self.pdf.modified if self.pdf else self.doc.modified
+
+    def _edited(self) -> bool:
+        return self.pdf.edited if self.pdf else self.doc.edited
+
+    def _mark_clean(self) -> None:
+        (self.pdf or self.doc).mark_clean()
+
+    def go_to(self, index: int) -> None:
+        """Show another page of a PDF (each keeps its own edits and undo history)."""
+        if self.pdf is None or not 0 <= index < self.pdf.count:
+            return
+        try:
+            doc = self.pdf.page(index)
+        except ConversionError as exc:
+            QMessageBox.warning(self, "Couldn't show the page", str(exc))
+            return
+        self.pdf.forget(self.page_index)  # unless it was edited
+        self.page_index, self.doc, self.canvas.doc = index, doc, doc
+        self._refresh()
+
     def _refresh(self) -> None:
         """After any change to the document: a pending crop was drawn on the old geometry."""
         self.canvas.crop_rect = None
@@ -435,8 +476,15 @@ class Editor(QMainWindow):
         self.crop_apply.setVisible(self.canvas.tool == "crop")
         self.aspect_action.setVisible(self.canvas.tool == "crop")
         image = self.doc.render()
-        self.status.setText(f"{image.width()} x {image.height()}")
-        self.setWindowTitle(f"{'* ' if self.doc.modified else ''}{self.path.name} - Hala")
+        size = f"{image.width()} x {image.height()}"
+        if self.pdf is not None:
+            self.page_label.setText(f" Page {self.page_index + 1} of {self.pdf.count} ")
+            self.prev_page.setEnabled(self.page_index > 0)
+            self.next_page.setEnabled(self.page_index < self.pdf.count - 1)
+            edited = len(self.pdf.edited_pages())
+            size += f" · {edited} page{'s' * (edited != 1)} edited" if edited else ""
+        self.status.setText(size)
+        self.setWindowTitle(f"{'* ' if self._modified() else ''}{self.path.name} - Hala")
         self.canvas.update()
 
     def _undo(self) -> None:
@@ -451,12 +499,13 @@ class Editor(QMainWindow):
 
     def _write(self, dest: Path | None) -> Path | None:
         try:
-            out = save_copy(self.doc.render(), self.path, dest=dest)
+            out = (save_pdf_copy(self.pdf, dest=dest) if self.pdf
+                   else save_copy(self.doc.render(), self.path, dest=dest))
         except ConversionError as exc:
             QMessageBox.warning(self, "Couldn't save", str(exc))
             return None
         self.saved_as = out
-        self.doc.mark_clean()
+        self._mark_clean()
         self._refresh()
         if dest is not None and out.name != dest.name:
             QMessageBox.information(self, "Saved under another name",
@@ -467,19 +516,19 @@ class Editor(QMainWindow):
 
     def save(self) -> bool:
         """Save a copy beside the original. True when there's nothing left unsaved."""
-        if not self.doc.modified:
+        if not self._modified():
             self.statusBar().showMessage("Nothing new to save", 4000)
             return True
-        if not self.doc.edited:  # undone back to the original after an earlier save
-            self.doc.mark_clean()
+        if not self._edited():  # undone back to the original after an earlier save
+            self._mark_clean()
             self._refresh()
             return True
         return self._write(None) is not None
 
     def save_as(self) -> bool:
-        exts = save_exts()
+        exts = ("pdf",) if self.pdf else save_exts()
         filters = [f"{e.upper()} (*.{e}{' *.jpeg' if e == 'jpg' else ''})" for e in exts]
-        own = output_ext(self.path)
+        own = "pdf" if self.pdf else output_ext(self.path)
         suggested = self.path.with_name(f"{f.stem_of(self.path)} (edited).{own}")
         name, chosen = QFileDialog.getSaveFileName(
             self, "Save as", str(suggested), ";;".join(filters), filters[exts.index(own)],
@@ -497,10 +546,16 @@ class Editor(QMainWindow):
         self.statusBar().showMessage("Copied to the clipboard", 4000)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if not self.doc.modified:
+        self._close(event)
+        if event.isAccepted() and self.pdf is not None:
+            self.pdf.close()  # the rendered pages
+
+    def _close(self, event: QCloseEvent) -> None:
+        if not self._modified():
             event.accept()
             return
-        target = f"{f.stem_of(self.path)} (edited).{output_ext(self.path)}"
+        own = "pdf" if self.pdf else output_ext(self.path)
+        target = f"{f.stem_of(self.path)} (edited).{own}"
         answer = QMessageBox.question(
             self, "Unsaved edits", f"Save your edits as {target} before closing?",
             QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard
@@ -556,8 +611,8 @@ def main(files: list[Path]) -> int:
     windows: list[Editor] = []
     problems: list[str] = []
     for path in files:
-        if f.ext_of(path) not in f.IMAGE_IN:
-            problems.append(f"{path.name}: not a picture Hala can edit")
+        if f.ext_of(path) not in (*f.IMAGE_IN, "pdf"):
+            problems.append(f"{path.name}: not a picture or PDF Hala can edit")
             continue
         try:
             window = Editor(path)
