@@ -49,7 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import SELF
+from .. import SELF, session
 from ..i18n import _, ngettext
 from . import layershell as ls
 from . import translate
@@ -513,7 +513,7 @@ def main(files: list[Path]) -> int:
                 return 0
         raise ConversionError(_("the shelf is starting but isn't answering; try again"))
     sock = listen()
-    app = QApplication.instance() or QApplication(sys.argv[:1])
+    app = QApplication.instance() or QApplication(session.qt_args(sys.argv[0]))
     assert isinstance(app, QApplication)
     translate.install(app)
     app.setApplicationName("hala")

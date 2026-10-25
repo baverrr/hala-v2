@@ -1,6 +1,7 @@
 """`hala run`: convert from a menu or drop, reporting through Plasma's own job progress.
 
-Progress shows in Plasma's job tracker (like a file copy), with a working Cancel button. When
+Progress shows in Plasma's job tracker (like a file copy), with a working Cancel button; on
+other desktops, in a notification that's updated as files finish, with a Cancel button. When
 the batch ends a notification offers Open / Show in folder, or lists what failed with a
 Details button for the full log. A cancelled batch only gets a notification if some files
 were already converted or skipped. Without a target (the app entry's "Open with"), it just
@@ -12,6 +13,7 @@ from __future__ import annotations
 import html
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -31,6 +33,7 @@ from gi.repository import (  # noqa: E402  # pyright: ignore[reportAttributeAcce
 )
 
 from . import formats as f  # noqa: E402
+from . import session  # noqa: E402
 from .i18n import _, n_files, ngettext  # noqa: E402
 from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status, clean_note  # noqa: E402
 from .registry import common_targets, route_for  # noqa: E402
@@ -46,6 +49,9 @@ FILE_MANAGER = ("org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
                 "org.freedesktop.FileManager1")
 # JobViewV2 capability bits: 1 = Killable, which gives the entry a Cancel button.
 KILLABLE = 1
+# Outside Plasma, the progress notification is replaced at most this often, so it doesn't
+# keep popping up.
+PROGRESS_EVERY_S = 2.0
 # Characters of a text result (QR codes) shown in the notification.
 TEXT_PREVIEW = 300
 # How long the result notification keeps its buttons working before the process exits.
@@ -82,6 +88,100 @@ class JobView:
                       None, None)
 
 
+class NotificationView:
+    """JobView's stand-in outside Plasma: one notification for the batch, replaced as it goes
+    (with a "value" hint, which servers that draw progress bars use), with a Cancel button."""
+
+    def __init__(self, bus: Gio.DBusConnection, on_cancel: Callable[[], None]):
+        self.bus, self.on_cancel = bus, on_cancel
+        self.id = 0
+        self.info = ""
+        self.file = ""
+        self.total = 0
+        self.processed = 0
+        self.percent = 0
+        self.shown_at = 0.0
+        self.pending = 0  # a GLib timeout that shows an update held back by the throttle
+        self.closed = False
+        bus.signal_subscribe(NOTIFY[0], NOTIFY[2], "ActionInvoked", NOTIFY[1], None,
+                             Gio.DBusSignalFlags.NONE, self._on_action)
+
+    def call(self, method: str, _signature: str, *args: Any) -> None:
+        if method == "setInfoMessage":
+            self.info = args[0]
+        elif method == "setDescriptionField":
+            self.file = args[2]
+        elif method == "setTotalAmount":
+            self.total = args[0]
+        elif method == "setProcessedAmount":
+            self.processed = args[0]
+        elif method == "setPercent":
+            self.percent = args[0]
+        elif method == "terminate":
+            self._close()
+            return
+        else:
+            return
+        wait = PROGRESS_EVERY_S - (time.monotonic() - self.shown_at)
+        if wait <= 0 or not self.id:
+            self._show()
+        elif not self.pending:  # held back: shown when the wait is over, even if nothing else
+            self.pending = GLib.timeout_add(int(wait * 1000) + 1, self._flush)
+
+    def _flush(self) -> bool:
+        self.pending = 0
+        self._show()
+        return False
+
+    def _show(self) -> None:
+        if self.closed:
+            return
+        body = f"{self.percent}%"
+        if self.total > 1:
+            body += " · " + _("{done} of {total} done").format(done=self.processed,
+                                                              total=self.total)
+        if self.file:
+            body += f"<br>{_esc(self.file)}"
+        hints = {"desktop-entry": GLib.Variant("s", APP_ID),
+                 "value": GLib.Variant("i", max(0, min(100, self.percent))),
+                 "urgency": GLib.Variant("y", 0), "suppress-sound": GLib.Variant("b", True)}
+        try:
+            reply = self.bus.call_sync(
+                *NOTIFY, "Notify",
+                GLib.Variant("(susssasa{sv}i)", ("Hala", self.id, "hala",
+                                                 _printable(self.info or "Hala"),
+                                                 _printable(_for_server(self.bus, body)),
+                                                 ["cancel", _("Cancel")], hints, 0)),
+                GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, 2000, None)
+        except GLib.Error as exc:
+            log.info("no progress notification: %s", exc.message)
+            self.closed = True  # don't retry every few seconds
+            return
+        self.id = reply.unpack()[0]
+        self.shown_at = time.monotonic()
+
+    def _close(self) -> None:
+        self.closed = True
+        if self.pending:
+            GLib.source_remove(self.pending)
+            self.pending = 0
+        if self.id:
+            self.bus.call(*NOTIFY, "CloseNotification", GLib.Variant("(u)", (self.id,)), None,
+                          Gio.DBusCallFlags.NONE, -1, None, None)
+
+    def _on_action(self, _bus, _sender, _path, _iface, _signal, params: GLib.Variant) -> None:
+        nid, action = params.unpack()
+        if nid == self.id and self.id and action == "cancel" and not self.closed:
+            self.on_cancel()
+
+
+def progress_view(bus: Gio.DBusConnection,
+                  on_cancel: Callable[[], None]) -> JobView | NotificationView:
+    """Plasma's job tracker if it's there, else a progress notification."""
+    view = JobView(bus, on_cancel)
+    return view if view.path is not None else NotificationView(bus, on_cancel)
+
+
 class Batch:
     """A conversion to target, or (with tool) a tool run, over files."""
 
@@ -95,7 +195,7 @@ class Batch:
         self.skipped: list[str] = []
         self.last_update = 0.0
         self.notification_id = 0
-        self.view: JobView | None = None
+        self.view: JobView | NotificationView | None = None
         self.outputs: list[Path] = []
         self.copy_text = ""
         self.finished = False
@@ -124,7 +224,7 @@ class Batch:
                          problem=True)
             self._wait_for_notification()
             return 1
-        self.view = JobView(self.bus, self._cancel_all)
+        self.view = progress_view(self.bus, self._cancel_all)
         # Logout or `kill` should cancel cleanly (tools stopped, scratch removed), not orphan.
         for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
             GLibUnix.signal_add(GLib.PRIORITY_HIGH, sig, self._on_signal)
@@ -252,7 +352,7 @@ class Batch:
     def _notify(self, summary: str, body: str, icon: str,
                 actions: list[str] | None = None, problem: bool = False) -> None:
         hints = {"desktop-entry": GLib.Variant("s", APP_ID)}
-        summary, body = _printable(summary), _printable(body)
+        summary, body = _printable(summary), _printable(_for_server(self.bus, body))
         try:
             reply = self.bus.call_sync(
                 *NOTIFY, "Notify",
@@ -293,9 +393,7 @@ class Batch:
                                    GLib.Variant("(ass)", ([p.as_uri() for p in outputs], "")),
                                    None, Gio.DBusCallFlags.NONE, 5000, None)
             elif action == "copy" and self.copy_text:
-                self.bus.call_sync("org.kde.klipper", "/klipper", "org.kde.klipper.klipper",
-                                   "setClipboardContents", GLib.Variant("(s)", (self.copy_text,)),
-                                   None, Gio.DBusCallFlags.NONE, 2000, None)
+                copy_text(self.bus, self.copy_text)
             elif action == "details":
                 Gio.AppInfo.launch_default_for_uri(LOG_FILE.as_uri(), None)
             elif action == "kdeconnect":
@@ -326,11 +424,65 @@ class Batch:
 
 def _fallback_dialog(summary: str, body: str) -> None:
     """Problems must reach the user somehow when notifications are down."""
-    if kdialog := shutil.which("kdialog"):
-        text = summary + "\n\n" + html.unescape(body.replace("<br>", "\n").replace("<b>", "")
-                                                .replace("</b>", ""))
-        subprocess.Popen([kdialog, "--title", "Hala", "--sorry", text],
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+    text = summary + "\n\n" + _plain(body)
+    if not session.error_dialog(text):
+        log.error("no way to show this problem: %s", text)
+
+
+def _plain(body: str) -> str:
+    """A notification body's markup as plain text: lines for <br>, no tags, no entities."""
+    text = re.sub(r"<br\s*/?>", "\n", body)
+    return html.unescape(re.sub(r"</?(b|i|u)>", "", text))
+
+
+# The server's name and whether it takes markup, asked once per process.
+_server: dict[str, Any] = {}
+
+
+def _for_server(bus: Gio.DBusConnection | None, body: str) -> str:
+    """The body as this notification server will show it properly. Plasma takes Hala's
+    markup as is; GNOME and most others take <b>/<i> but print <br> literally, so lines are
+    newlines there; a server without body markup gets plain text."""
+    if "markup" not in _server:
+        name, markup = "", True
+        if bus is not None:
+            try:
+                caps = bus.call_sync(*NOTIFY, "GetCapabilities", None,
+                                     GLib.VariantType("(as)"), Gio.DBusCallFlags.NONE, 2000,
+                                     None).unpack()[0]
+                info = bus.call_sync(*NOTIFY, "GetServerInformation", None,
+                                     GLib.VariantType("(ssss)"), Gio.DBusCallFlags.NONE, 2000,
+                                     None).unpack()
+                name, markup = info[0], "body-markup" in caps
+            except GLib.Error as exc:
+                log.info("notification server unknown: %s", exc.message)
+        _server.update(name=name, markup=markup)
+    if not _server["markup"]:
+        return _plain(body)
+    if _server["name"] in ("Plasma", "KDE"):
+        return body
+    return re.sub(r"<br\s*/?>", "\n", body)
+
+
+def copy_text(bus: Gio.DBusConnection | None, text: str) -> None:
+    """Put text on the clipboard: Klipper on Plasma, else wl-copy, xclip or xsel."""
+    if session.is_kde() and bus is not None:
+        try:
+            bus.call_sync("org.kde.klipper", "/klipper", "org.kde.klipper.klipper",
+                          "setClipboardContents", GLib.Variant("(s)", (text,)), None,
+                          Gio.DBusCallFlags.NONE, 2000, None)
+            return
+        except GLib.Error as exc:
+            log.info("Klipper isn't there (%s); trying the command line", exc.message)
+    writer = session.clipboard_writer()
+    if writer is None:
+        raise OSError(_("no clipboard tool: install wl-clipboard (Wayland) or xclip (X11)"))
+    # wl-copy and xclip stay behind to serve the clipboard: don't wait for them.
+    proc = subprocess.Popen(writer, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, start_new_session=True)
+    assert proc.stdin is not None
+    proc.stdin.write(text.encode())
+    proc.stdin.close()
 
 
 def _note_lines(done: list[Job], shown: int = 3) -> list[str]:
@@ -405,8 +557,10 @@ def notify(summary: str, body: str, icon: str = "hala", outputs: list[Path] | No
 def _describe(files: list[Path]) -> int:
     """No target given: say what the files can become (the app entry's "Open with")."""
     targets = [t.upper() for t in common_targets([f.ext_of(p) for p in files])]
-    body = (_("Can become: {formats}.").format(formats=", ".join(targets)) + "<br>"
-            + _("Right-click → Convert to in Dolphin.")
+    where = (_("Right-click → Convert to in Dolphin.") if session.is_kde()
+             else _("Right-click → Hala… in your file manager, or drag them to the screen "
+                    "edge."))
+    body = (_("Can become: {formats}.").format(formats=", ".join(targets)) + "<br>" + where
             if targets else _("Hala can't convert these files."))
     notify("Hala", body)
     return 0 if targets else 1

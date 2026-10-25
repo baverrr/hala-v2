@@ -9,10 +9,11 @@ the last and apt upgrades to it; older .debs in dist/ are removed.
 
 It installs the hala package for the system Python 3 (PySide6 and GLib come from apt, as in
 development), /usr/bin/hala, the application menu entry, the hala:// link handler, the icon,
-the wheel's global shortcut (/usr/share/kglobalaccel) and every Dolphin menu (system-wide, so
-each account on the machine gets them). The converters are apt dependencies; the rest is
-recommended rather than required (RECOMMENDS: LibreOffice, pandoc, WeasyPrint, the Carlito
-and Caladea fonts, wl-clipboard, KDE Connect, kdialog, Dolphin).
+the wheel's global shortcut (/usr/share/kglobalaccel), every Dolphin menu, and the Hala…
+entries for GNOME Files, Caja and Nemo (system-wide, so each account on the machine gets
+them). The converters are apt dependencies; the rest is recommended rather than required
+(RECOMMENDS: LibreOffice, pandoc, WeasyPrint, the Carlito and Caladea fonts, wl-clipboard,
+KDE Connect, kdialog, Dolphin) or, for other desktops, suggested (SUGGESTS).
 No maintainer scripts: dpkg's triggers refresh the icon and application caches.
 
 Only files git knows about are packaged: the build stops if hala/ holds untracked or ignored
@@ -34,6 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from hala import __version__  # noqa: E402
+from hala.filemanagers import system_files  # noqa: E402
 from hala.servicemenus import (  # noqa: E402
     APP_ENTRY,
     DEFAULT_SHORTCUT,
@@ -60,6 +62,9 @@ DEPENDS = [
 RECOMMENDS = ["wl-clipboard", "pandoc", "weasyprint", "libreoffice-writer", "libreoffice-calc",
               "libreoffice-impress", "fonts-crosextra-carlito", "fonts-crosextra-caladea",
               "kdeconnect", "kdialog", "dolphin"]
+# Off Plasma: the right-click entries in GNOME Files and Caja need their python bindings, and
+# the shortcut and Copy need a clipboard tool on X11. Suggested, so Plasma users don't get them.
+SUGGESTS = ["python3-nautilus", "python3-caja", "xclip", "zenity"]
 DESCRIPTION = """\
 Local file converter for KDE Plasma
  Convert images, video, audio, documents, e-books and archives on this machine:
@@ -104,6 +109,12 @@ def stage(root: Path, version: str = __version__) -> None:
         (menus / name).write_text(text)
         (menus / name).chmod(0o755)
 
+    # GNOME Files and Caja (with their python extensions), and Nemo: Hala… and the editor.
+    for relative, text in system_files(EXE).items():
+        path = root / "usr/share" / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
     doc = root / "usr/share/doc/hala"
     doc.mkdir(parents=True)
     shutil.copyfile(ROOT / "README.md", doc / "README.md")
@@ -130,7 +141,8 @@ def stage(root: Path, version: str = __version__) -> None:
         f"Package: hala\nVersion: {version}\nArchitecture: all\n"
         f"Maintainer: {MAINTAINER}\nInstalled-Size: {size_kb}\nSection: utils\n"
         f"Priority: optional\nDepends: {', '.join(DEPENDS)}\n"
-        f"Recommends: {', '.join(RECOMMENDS)}\nDescription: {DESCRIPTION}\n")
+        f"Recommends: {', '.join(RECOMMENDS)}\nSuggests: {', '.join(SUGGESTS)}\n"
+        f"Description: {DESCRIPTION}\n")
 
 
 def stray_files(root: Path = ROOT) -> list[str]:

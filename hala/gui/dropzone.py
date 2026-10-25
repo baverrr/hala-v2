@@ -11,6 +11,7 @@ from __future__ import annotations
 import fcntl
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,7 +31,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
-from .. import SELF
+from .. import SELF, session
 from ..i18n import N_, _
 from ..servicemenus import exec_arg, localize
 from . import layershell as ls
@@ -208,7 +209,11 @@ def main(edge: str = "right") -> int:
     logging.basicConfig(filename=LOCK_FILE.parent / "dropzone.log", filemode="w",
                         format="%(asctime)s %(levelname)s %(message)s",
                         level=logging.DEBUG if os.environ.get("HALA_DEBUG") else logging.INFO)
-    app = QApplication(sys.argv[:1])
+    if exe := shutil.which("hala"):
+        from .. import shortcut
+
+        shortcut.offer_once(exe)
+    app = QApplication(session.qt_args(sys.argv[0]))
     translate.install(app)
     app.setApplicationName("hala")
     app.setDesktopFileName("hala")

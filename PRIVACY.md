@@ -29,6 +29,8 @@ them contain the **names and folders of files you converted**:
 | `~/.cache/hala/*.lock`, and the shelf's socket in `/run/user/…` (or `~/.cache/hala/run/`) | Lock files, so only one drop zone and one shelf run at a time and two LibreOffice runs don't share a profile. |
 | `~/.config/autostart/hala-dropzone.desktop` | Only if you turned on `hala dropzone --autostart on`. |
 | `~/.config/hala/limits.conf` | Only if you changed a size limit with `hala limits set`: the limits you changed, nothing else. |
+| GNOME's settings, and `~/.config/hala/gnome-shortcut-added` | On GNOME only: the **Hala wheel** custom shortcut (Settings › Keyboard), added once when the drop zone first starts, and a marker so it isn't added again after you remove it. |
+| `~/.local/share/nautilus-python`, `caja-python`, `nemo/actions`, and your Thunar `uca.xml` | Only if you ran `hala install-menus`: the **Hala…** right-click entries. `hala install-menus --remove` takes them out again (only Hala's own entries in `uca.xml`). |
 | `.hala-…` folders beside your files | Scratch space while a job runs. They're removed when it finishes, or, if Hala was killed mid-job, by the next job in that folder once they're a day old. |
 
 To remove all of it, delete `~/.cache/hala` (and the autostart file and `~/.config/hala`, if

@@ -177,58 +177,58 @@ msgstr "não há conversões em comum para estes arquivos"
 msgid "any file"
 msgstr "qualquer arquivo"
 
-#: hala/cli.py:63
+#: hala/cli.py:68
 msgid "(MISSING)"
 msgstr "(FALTANDO)"
 
-#: hala/cli.py:75
+#: hala/cli.py:80
 #, python-brace-format
 msgid "fix {path} first, or start again with `hala limits reset`"
 msgstr "corrija {path} primeiro ou recomece com `hala limits reset`"
 
-#: hala/cli.py:93
+#: hala/cli.py:98
 #, python-brace-format
 msgid "can't save {path}: {error}"
 msgstr "não foi possível salvar {path}: {error}"
 
-#: hala/cli.py:103
+#: hala/cli.py:108
 msgid "(default {n:,})"
 msgstr "(padrão {n:,})"
 
-#: hala/cli.py:106
+#: hala/cli.py:111
 #, python-brace-format
 msgid "no {path}: all defaults"
 msgstr "sem {path}: tudo no padrão"
 
-#: hala/cli.py:108
+#: hala/cli.py:113
 #, python-brace-format
 msgid "warning: {problem}"
 msgstr "aviso: {problem}"
 
-#: hala/cli.py:123
+#: hala/cli.py:128
 msgid "(combines several files)"
 msgstr "(combina vários arquivos)"
 
-#: hala/cli.py:185
+#: hala/cli.py:190
 #, python-brace-format
 msgid "note: {note}"
 msgstr "observação: {note}"
 
-#: hala/cli.py:220
+#: hala/cli.py:225
 msgid "must be at least 1"
 msgstr "precisa ser pelo menos 1"
 
-#: hala/cli.py:230
+#: hala/cli.py:235
 #, python-brace-format
 msgid "autostart enabled: {path}"
 msgstr "início automático ativado: {path}"
 
-#: hala/cli.py:231
+#: hala/cli.py:236
 #, python-brace-format
 msgid "autostart disabled: {path}"
 msgstr "início automático desativado: {path}"
 
-#: hala/cli.py:255
+#: hala/cli.py:260
 msgid ""
 "Drag files to the thin strip at the screen edge, or right-click Hala's tray "
 "icon for the shelf."
@@ -236,84 +236,105 @@ msgstr ""
 "Arraste arquivos para a faixa fina na borda da tela, ou clique com o botão "
 "direito no ícone do Hala na bandeja para abrir a prateleira."
 
-#: hala/cli.py:255
+#: hala/cli.py:260
 msgid "Hala is running"
 msgstr "O Hala está rodando"
 
-#: hala/cli.py:291
+#: hala/cli.py:296
 #, python-brace-format
 msgid "removed {n} Dolphin menu file"
 msgid_plural "removed {n} Dolphin menu files"
 msgstr[0] "{n} arquivo de menu do Dolphin removido"
 msgstr[1] "{n} arquivos de menu do Dolphin removidos"
 
-#: hala/cli.py:295
+#: hala/cli.py:299
+msgid "removed the GNOME shortcut"
+msgstr "atalho do GNOME removido"
+
+#: hala/cli.py:303
 #, python-brace-format
 msgid "installed {n} Dolphin menu file in {folder}"
 msgid_plural "installed {n} Dolphin menu files in {folder}"
 msgstr[0] "{n} arquivo de menu do Dolphin instalado em {folder}"
 msgstr[1] "{n} arquivos de menu do Dolphin instalados em {folder}"
 
-#: hala/cli.py:302
+#: hala/cli.py:308
+#, python-brace-format
+msgid "Hala… is in the right-click menu of: {apps}"
+msgstr "Hala… está no menu de contexto de: {apps}"
+
+#: hala/cli.py:310
+msgid "for Thunar: start it once, then run this again"
+msgstr "para o Thunar: abra-o uma vez e execute isto de novo"
+
+#: hala/cli.py:312
+msgid ""
+"added the GNOME shortcut Super+Shift+H (Settings > Keyboard to change it)"
+msgstr ""
+"atalho do GNOME Super+Shift+H adicionado (para mudar: Configurações > "
+"Teclado)"
+
+#: hala/cli.py:317
 msgid "Convert files locally."
 msgstr "Converta arquivos no seu computador."
 
-#: hala/cli.py:306
+#: hala/cli.py:321
 msgid "convert files; results go next to the originals"
 msgstr "converter arquivos; os resultados ficam ao lado dos originais"
 
-#: hala/cli.py:309
+#: hala/cli.py:324
 msgid "target format, e.g. jpg, mp3, pdf, folder"
 msgstr "formato de destino, ex.: jpg, mp3, pdf, folder"
 
-#: hala/cli.py:310 hala/cli.py:426
+#: hala/cli.py:325 hala/cli.py:443
 msgid "put results here instead of next to the originals"
 msgstr "colocar os resultados aqui em vez de ao lado dos originais"
 
-#: hala/cli.py:312
+#: hala/cli.py:327
 #, python-brace-format
 msgid "conversions at once (default {n})"
 msgstr "conversões ao mesmo tempo (padrão {n})"
 
-#: hala/cli.py:313
+#: hala/cli.py:328
 msgid "one JSON line per finished file"
 msgstr "uma linha JSON por arquivo concluído"
 
-#: hala/cli.py:316
+#: hala/cli.py:331
 msgid "list what these files can be converted to"
 msgstr "listar para o que estes arquivos podem ser convertidos"
 
-#: hala/cli.py:321
-msgid "convert with Plasma progress + notifications (for menus)"
-msgstr "converter com progresso e notificações do Plasma (para os menus)"
+#: hala/cli.py:337
+msgid "convert with desktop progress + notifications (for menus)"
+msgstr ""
+"converter com o progresso e as notificações da área de trabalho (para menus)"
 
-#: hala/cli.py:325
+#: hala/cli.py:341
 msgid "without it (or --tool), say what the files can become"
 msgstr "sem isto (nem --tool), dizer no que os arquivos podem se tornar"
 
-#: hala/cli.py:326
+#: hala/cli.py:342
 msgid "run a tool instead (asks for its settings first)"
 msgstr "executar uma ferramenta em vez disso (pede as configurações antes)"
 
-#: hala/cli.py:328
+#: hala/cli.py:344
 msgid "show the tool's settings dialog (default: yes)"
 msgstr "mostrar a janela de configurações da ferramenta (padrão: sim)"
 
-#: hala/cli.py:332
+#: hala/cli.py:348
 msgid "drag files to a screen edge to pick a format"
 msgstr "arrastar arquivos para uma borda da tela para escolher um formato"
 
-#: hala/cli.py:335
+#: hala/cli.py:351
 msgid "start the drop zone at login (or stop doing so), then exit"
 msgstr "iniciar a área de soltar no login (ou deixar de fazer isso) e sair"
 
-#: hala/cli.py:338
+#: hala/cli.py:354
 msgid "what the app menu starts: the drop zone (files: what they can become)"
 msgstr ""
 "o que o menu de aplicativos abre: a área de soltar (com arquivos: no que "
 "eles podem se tornar)"
 
-#: hala/cli.py:343
+#: hala/cli.py:359
 msgid ""
 "the format wheel for FILES (or --clipboard), without dragging to the screen "
 "edge"
@@ -321,89 +342,89 @@ msgstr ""
 "a roda de formatos para FILES (ou --clipboard), sem arrastar até a borda da "
 "tela"
 
-#: hala/cli.py:347
+#: hala/cli.py:363
 msgid ""
 "use the files last copied (Ctrl+C) instead; the global shortcut does this"
 msgstr ""
 "usar os últimos arquivos copiados (Ctrl+C); é o que o atalho global faz"
 
-#: hala/cli.py:352
+#: hala/cli.py:368
 msgid "crop, annotate or redact pictures or PDFs (saves a copy)"
 msgstr "recortar, anotar ou tarjar imagens ou PDFs (salva uma cópia)"
 
-#: hala/cli.py:356
+#: hala/cli.py:372
 msgid "zip, copy/move to a folder, send to a phone, shelve"
 msgstr ""
 "zipar, copiar/mover para uma pasta, enviar para um celular, pôr na prateleira"
 
-#: hala/cli.py:358
+#: hala/cli.py:374
 msgid "(only shelf may be given none: it just opens)"
 msgstr "(só shelf aceita nenhum: ela simplesmente abre)"
 
-#: hala/cli.py:359
+#: hala/cli.py:375
 msgid "copy/move: the folder (asks when left out)"
 msgstr "copy/move: a pasta (é perguntada se faltar)"
 
-#: hala/cli.py:361
+#: hala/cli.py:377
 msgid "phone: KDE Connect device id (asks when there are several)"
 msgstr ""
 "phone: id do dispositivo no KDE Connect (é perguntado se houver vários)"
 
-#: hala/cli.py:364
+#: hala/cli.py:380
 msgid "a floating shelf that holds files to drag elsewhere"
 msgstr ""
 "uma prateleira flutuante que guarda arquivos para arrastar para outro lugar"
 
-#: hala/cli.py:369
-msgid "add (or --remove) the Dolphin menus, app entry and shortcut"
+#: hala/cli.py:385
+msgid "add (or --remove) the file manager menus, app entry and shortcut"
 msgstr ""
-"adicionar (ou remover com --remove) os menus do Dolphin, a entrada do "
-"aplicativo e o atalho"
+"adicionar (ou remover com --remove) os menus do gerenciador de arquivos, a "
+"entrada do aplicativo e o atalho"
 
-#: hala/cli.py:375
+#: hala/cli.py:392
 msgid "show or change the size limits (huge pictures, archives)"
 msgstr ""
 "mostrar ou alterar os limites de tamanho (imagens enormes, arquivos "
 "compactados)"
 
-#: hala/cli.py:378
+#: hala/cli.py:395
 msgid "change one, e.g. `hala limits set max_megapixels 1000`"
 msgstr "alterar um, por ex. `hala limits set max_megapixels 1000`"
 
-#: hala/cli.py:382
+#: hala/cli.py:399
 msgid "go back to the default for one (or, without a name, for all)"
 msgstr "voltar ao padrão de um (ou, sem nome, de todos)"
 
-#: hala/cli.py:389
+#: hala/cli.py:406
 msgid "show the whole conversion table"
 msgstr "mostrar a tabela de conversões inteira"
 
-#: hala/cli.py:391
+#: hala/cli.py:408
 msgid "check the converter tools are installed"
 msgstr "verificar se os programas de conversão estão instalados"
 
-#: hala/cli.py:399
+#: hala/cli.py:416
 msgid "compress, trim, merge… (`hala tool` lists them)"
 msgstr "comprimir, cortar, juntar… (`hala tool` lista todas)"
 
-#: hala/cli.py:405
+#: hala/cli.py:422
 msgid "in order"
 msgstr "em ordem"
 
-#: hala/cli.py:416
+#: hala/cli.py:433
 msgid "(leave it out to be asked; on the command line, other users can see it)"
 msgstr ""
 "(omita para ser perguntado; na linha de comando, outros usuários podem vê-la)"
 
-#: hala/cli.py:424
+#: hala/cli.py:441
 msgid "print it instead of changing it"
 msgstr "mostrar em vez de alterar"
 
-#: hala/cli.py:428
+#: hala/cli.py:445
 msgid "one JSON line per finished job"
 msgstr "uma linha JSON por tarefa concluída"
 
-#: hala/cli.py:466
+#: hala/cli.py:483
 #, python-brace-format
 msgid ""
 "Hala hit a bug: {error}\n"
@@ -449,191 +470,213 @@ msgstr "{name} (páginas {format})"
 msgid "can't save the result in {folder}: {reason}"
 msgstr "não é possível salvar o resultado em {folder}: {reason}"
 
-#: hala/desktop.py:114
+#: hala/desktop.py:141
+#, python-brace-format
+msgid "{done} of {total} done"
+msgstr "{done} de {total} prontos"
+
+#: hala/desktop.py:154
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: hala/desktop.py:214
 #, python-brace-format
 msgid "{name} is already {format}"
 msgstr "{name} já é {format}"
 
-#: hala/desktop.py:117
+#: hala/desktop.py:217
 #, python-brace-format
 msgid "{name} can't become {format}"
 msgstr "{name} não pode virar {format}"
 
-#: hala/desktop.py:123 hala/gui/wheelapp.py:108
+#: hala/desktop.py:223 hala/gui/wheelapp.py:136
 msgid "Nothing to convert"
 msgstr "Nada para converter"
 
-#: hala/desktop.py:133
+#: hala/desktop.py:233
 #, python-brace-format
 msgid "Converting {n} file to {format}"
 msgid_plural "Converting {n} files to {format}"
 msgstr[0] "Convertendo {n} arquivo para {format}"
 msgstr[1] "Convertendo {n} arquivos para {format}"
 
-#: hala/desktop.py:138 hala/desktop.py:178
+#: hala/desktop.py:238 hala/desktop.py:278
 msgid "File"
 msgstr "Arquivo"
 
-#: hala/desktop.py:159
+#: hala/desktop.py:259
 #, python-brace-format
 msgid "Converted to {format}"
 msgstr "Convertido para {format}"
 
-#: hala/desktop.py:198 hala/desktop.py:203
+#: hala/desktop.py:298 hala/desktop.py:303
 msgid "Cancelled"
 msgstr "Cancelado"
 
-#: hala/desktop.py:212
+#: hala/desktop.py:312
 msgid "Open"
 msgstr "Abrir"
 
-#: hala/desktop.py:212 hala/desktop.py:222 hala/desktop.py:247
-#: hala/desktop.py:478 hala/desktop.py:485 hala/gui/shelf.py:199
+#: hala/desktop.py:312 hala/desktop.py:322 hala/desktop.py:347
+#: hala/desktop.py:632 hala/desktop.py:639 hala/gui/shelf.py:199
 msgid "Show in folder"
 msgstr "Mostrar na pasta"
 
-#: hala/desktop.py:217 hala/gui/editor.py:418
+#: hala/desktop.py:317 hala/gui/editor.py:418
 msgid "Copy"
 msgstr "Copiar"
 
-#: hala/desktop.py:220 hala/desktop.py:481
+#: hala/desktop.py:320 hala/desktop.py:635
 #, python-brace-format
 msgid "{files} in {folder}"
 msgstr "{files} em {folder}"
 
-#: hala/desktop.py:237
+#: hala/desktop.py:337
 msgid "The rest were cancelled."
 msgstr "O restante foi cancelado."
 
-#: hala/desktop.py:240
+#: hala/desktop.py:340
 #, python-brace-format
 msgid "{done}: {n} of {total}"
 msgstr "{done}: {n} de {total}"
 
-#: hala/desktop.py:242
+#: hala/desktop.py:342
 #, python-brace-format
 msgid "{tool} didn't work"
 msgstr "{tool} não funcionou"
 
-#: hala/desktop.py:244
+#: hala/desktop.py:344
 #, python-brace-format
 msgid "{n} of {total} converted to {format}"
 msgstr "{n} de {total} convertidos para {format}"
 
-#: hala/desktop.py:246
+#: hala/desktop.py:346
 #, python-brace-format
 msgid "Couldn't convert to {format}"
 msgstr "Não foi possível converter para {format}"
 
-#: hala/desktop.py:249
+#: hala/desktop.py:349
 msgid "Details"
 msgstr "Detalhes"
 
-#: hala/desktop.py:343
+#: hala/desktop.py:479
+msgid "no clipboard tool: install wl-clipboard (Wayland) or xclip (X11)"
+msgstr ""
+"nenhuma ferramenta de área de transferência: instale wl-clipboard (Wayland) "
+"ou xclip (X11)"
+
+#: hala/desktop.py:495
 #, python-brace-format
 msgid "…and {n} more (see {log})"
 msgstr "…e mais {n} (veja {log})"
 
-#: hala/desktop.py:368
+#: hala/desktop.py:520
 msgid "failed"
 msgstr "falhou"
 
-#: hala/desktop.py:408
+#: hala/desktop.py:560
+msgid "Right-click → Convert to in Dolphin."
+msgstr "Clique com o botão direito → Converter para no Dolphin."
+
+#: hala/desktop.py:561
+msgid ""
+"Right-click → Hala… in your file manager, or drag them to the screen edge."
+msgstr ""
+"Clique com o botão direito → Hala… no gerenciador de arquivos, ou arraste-os "
+"para a borda da tela."
+
+#: hala/desktop.py:563
 #, python-brace-format
 msgid "Can become: {formats}."
 msgstr "Pode virar: {formats}."
 
-#: hala/desktop.py:409
-msgid "Right-click → Convert to in Dolphin."
-msgstr "Clique com o botão direito → Converter para no Dolphin."
-
-#: hala/desktop.py:410
+#: hala/desktop.py:564
 msgid "Hala can't convert these files."
 msgstr "O Hala não consegue converter estes arquivos."
 
-#: hala/desktop.py:416
+#: hala/desktop.py:570
 #, python-brace-format
 msgid "{name}: {tool} doesn't take {format} files"
 msgstr "{name}: {tool} não aceita arquivos {format}"
 
-#: hala/desktop.py:417
+#: hala/desktop.py:571
 msgid "these"
 msgstr "desse tipo"
 
-#: hala/desktop.py:430
+#: hala/desktop.py:584
 #, python-brace-format
 msgid "{action} needs at least one file"
 msgstr "{action} precisa de pelo menos um arquivo"
 
-#: hala/desktop.py:447
+#: hala/desktop.py:601
 msgid "no action called {name!r} (there's {actions})"
 msgstr "não existe a ação {name!r} (existem {actions})"
 
-#: hala/desktop.py:470
+#: hala/desktop.py:624
 #, python-brace-format
 msgid "Copied {n} of {total} file"
 msgid_plural "Copied {n} of {total} files"
 msgstr[0] "{n} de {total} arquivo copiado"
 msgstr[1] "{n} de {total} arquivos copiados"
 
-#: hala/desktop.py:472
+#: hala/desktop.py:626
 #, python-brace-format
 msgid "Moved {n} of {total} file"
 msgid_plural "Moved {n} of {total} files"
 msgstr[0] "{n} de {total} arquivo movido"
 msgstr[1] "{n} de {total} arquivos movidos"
 
-#: hala/desktop.py:475
+#: hala/desktop.py:629
 msgid "Couldn't copy it"
 msgid_plural "Couldn't copy them"
 msgstr[0] "Não foi possível copiar"
 msgstr[1] "Não foi possível copiá-los"
 
-#: hala/desktop.py:476
+#: hala/desktop.py:630
 msgid "Couldn't move it"
 msgid_plural "Couldn't move them"
 msgstr[0] "Não foi possível mover"
 msgstr[1] "Não foi possível movê-los"
 
-#: hala/desktop.py:483
+#: hala/desktop.py:637
 #, python-brace-format
 msgid "Copied to {folder}"
 msgstr "Copiado para {folder}"
 
-#: hala/desktop.py:483
+#: hala/desktop.py:637
 #, python-brace-format
 msgid "Moved to {folder}"
 msgstr "Movido para {folder}"
 
-#: hala/desktop.py:495
+#: hala/desktop.py:649
 msgid "Can't send to a phone"
 msgstr "Não é possível enviar para um celular"
 
-#: hala/desktop.py:499
+#: hala/desktop.py:653
 msgid "Open KDE Connect"
 msgstr "Abrir o KDE Connect"
 
-#: hala/desktop.py:501
+#: hala/desktop.py:655
 msgid "No phone connected"
 msgstr "Nenhum celular conectado"
 
-#: hala/desktop.py:501
+#: hala/desktop.py:655
 msgid "Pair a phone in KDE Connect and make sure it's on the same network."
 msgstr "Pareie um celular no KDE Connect e confira se ele está na mesma rede."
 
-#: hala/desktop.py:520
+#: hala/desktop.py:674
 #, python-brace-format
 msgid "Sending {n} of {total} file to {device}"
 msgid_plural "Sending {n} of {total} files to {device}"
 msgstr[0] "Enviando {n} de {total} arquivo para {device}"
 msgstr[1] "Enviando {n} de {total} arquivos para {device}"
 
-#: hala/desktop.py:523
+#: hala/desktop.py:677
 #, python-brace-format
 msgid "Couldn't send to {device}"
 msgstr "Não foi possível enviar para {device}"
 
-#: hala/desktop.py:528
+#: hala/desktop.py:682
 #, python-brace-format
 msgid "Sending to {device}"
 msgstr "Enviando para {device}"
@@ -892,6 +935,27 @@ msgstr ""
 msgid "this PDF has no pages to render"
 msgstr "este PDF não tem páginas para renderizar"
 
+#: hala/filemanagers.py:110 hala/filemanagers.py:186
+msgid "Convert, compress or edit with Hala"
+msgstr "Converter, compactar ou editar com o Hala"
+
+#: hala/filemanagers.py:110 hala/filemanagers.py:187
+msgid "Edit a copy with Hala"
+msgstr "Editar uma cópia com o Hala"
+
+#: hala/filemanagers.py:178
+#, python-brace-format
+msgid "(needs {package})"
+msgstr "(precisa de {package})"
+
+#: hala/filemanagers.py:186 hala/servicemenus.py:45
+msgid "Hala…"
+msgstr "Hala…"
+
+#: hala/filemanagers.py:187 hala/servicemenus.py:45
+msgid "Crop, annotate, redact…"
+msgstr "Recortar, anotar, tarjar…"
+
 #: hala/formats.py:49
 msgctxt "format"
 msgid "Folder (extract)"
@@ -943,43 +1007,43 @@ msgstr "fim em {time}"
 msgid "start at {time}"
 msgstr "início em {time}"
 
-#: hala/gui/dropzone.py:54
+#: hala/gui/dropzone.py:55
 msgid "Drag files to the screen edge to convert them"
 msgstr "Arraste arquivos para a borda da tela para convertê-los"
 
-#: hala/gui/dropzone.py:54 hala/gui/dropzone.py:74
+#: hala/gui/dropzone.py:55 hala/gui/dropzone.py:75
 msgid "Hala drop zone"
 msgstr "Área de soltar do Hala"
 
-#: hala/gui/dropzone.py:77
+#: hala/gui/dropzone.py:78
 msgid "Drag files here to convert them"
 msgstr "Arraste arquivos para cá para convertê-los"
 
-#: hala/gui/dropzone.py:150
+#: hala/gui/dropzone.py:151
 msgid "Hala: drag files to the screen edge to convert them"
 msgstr "Hala: arraste arquivos para a borda da tela para convertê-los"
 
-#: hala/gui/dropzone.py:152 hala/gui/dropzone.py:174
+#: hala/gui/dropzone.py:153 hala/gui/dropzone.py:175
 msgid "Hide drop zone"
 msgstr "Ocultar a área de soltar"
 
-#: hala/gui/dropzone.py:157
+#: hala/gui/dropzone.py:158
 msgid "Show shelf"
 msgstr "Mostrar a prateleira"
 
-#: hala/gui/dropzone.py:159
+#: hala/gui/dropzone.py:160
 msgid "Wheel for copied files"
 msgstr "Roda para os arquivos copiados"
 
-#: hala/gui/dropzone.py:164
+#: hala/gui/dropzone.py:165
 msgid "Quit"
 msgstr "Sair"
 
-#: hala/gui/dropzone.py:174
+#: hala/gui/dropzone.py:175
 msgid "Show drop zone"
 msgstr "Mostrar a área de soltar"
 
-#: hala/gui/dropzone.py:205
+#: hala/gui/dropzone.py:206
 msgid "the drop zone is already running"
 msgstr "a área de soltar já está rodando"
 
@@ -1293,7 +1357,7 @@ msgstr[1] "{n} itens"
 msgid "the shelf is starting but isn't answering; try again"
 msgstr "a prateleira está iniciando mas não responde; tente de novo"
 
-#: hala/gui/wheelapp.py:101
+#: hala/gui/wheelapp.py:128
 #, python-brace-format
 msgid "Only files on this computer can be used ({n} network file skipped)."
 msgid_plural ""
@@ -1304,12 +1368,13 @@ msgstr[1] ""
 "Só arquivos deste computador podem ser usados ({n} arquivos de rede "
 "ignorados)."
 
-#: hala/gui/wheelapp.py:105
-msgid "Copy files first (Ctrl+C in Dolphin), then press the shortcut again."
+#: hala/gui/wheelapp.py:132
+#, python-brace-format
+msgid "Copy files first (Ctrl+C in {app}), then press the shortcut again."
 msgstr ""
-"Copie os arquivos primeiro (Ctrl+C no Dolphin) e pressione o atalho de novo."
+"Copie os arquivos primeiro (Ctrl+C no {app}) e pressione o atalho de novo."
 
-#: hala/gui/wheelapp.py:107
+#: hala/gui/wheelapp.py:135
 msgid "No files were given."
 msgstr "Nenhum arquivo foi informado."
 
@@ -1484,16 +1549,8 @@ msgid "Convert to"
 msgstr "Converter para"
 
 #: hala/servicemenus.py:45
-msgid "Crop, annotate, redact…"
-msgstr "Recortar, anotar, tarjar…"
-
-#: hala/servicemenus.py:45
 msgid "Hala tools"
 msgstr "Ferramentas do Hala"
-
-#: hala/servicemenus.py:45
-msgid "Hala…"
-msgstr "Hala…"
 
 #: hala/servicemenus.py:46
 msgid "File Converter"
@@ -1514,7 +1571,7 @@ msgstr ""
 msgid "convert;converter;compress;pdf;image;video;audio;"
 msgstr "converter;conversor;comprimir;pdf;imagem;vídeo;áudio;"
 
-#: hala/servicemenus.py:50
+#: hala/servicemenus.py:50 hala/shortcut.py:27
 msgid "Hala wheel"
 msgstr "Roda do Hala"
 
@@ -1529,6 +1586,62 @@ msgstr "Abrir a roda para os arquivos copiados"
 #: hala/servicemenus.py:51
 msgid "Open the format wheel for the files last copied with Ctrl+C"
 msgstr "Abrir a roda de formatos para os últimos arquivos copiados com Ctrl+C"
+
+#: hala/session.py:86
+msgid "your file manager"
+msgstr "seu gerenciador de arquivos"
+
+#: hala/session.py:135
+msgid "unknown"
+msgstr "desconhecido"
+
+#: hala/session.py:136
+msgid "no display"
+msgstr "sem tela"
+
+#: hala/session.py:138
+msgid "XWayland windows (no layer shell here)"
+msgstr "janelas do XWayland (não há layer shell aqui)"
+
+#: hala/session.py:140
+msgid "layer shell"
+msgstr "layer shell"
+
+#: hala/session.py:141
+msgid "plain windows (no LayerShellQt)"
+msgstr "janelas comuns (sem LayerShellQt)"
+
+#: hala/session.py:143
+msgid "always-on-top windows"
+msgstr "janelas sempre no topo"
+
+#: hala/session.py:144
+msgid "Plasma's job tracker"
+msgstr "o acompanhamento de tarefas do Plasma"
+
+#: hala/session.py:144
+msgid "a notification"
+msgstr "uma notificação"
+
+#: hala/session.py:145
+#, python-brace-format
+msgid "desktop: {names} ({kind})"
+msgstr "área de trabalho: {names} ({kind})"
+
+#: hala/session.py:146
+#, python-brace-format
+msgid "edge windows: {how}"
+msgstr "janelas da borda: {how}"
+
+#: hala/session.py:147
+#, python-brace-format
+msgid "progress: {how}"
+msgstr "progresso: {how}"
+
+#: hala/session.py:148
+#, python-brace-format
+msgid "file manager: {name}"
+msgstr "gerenciador de arquivos: {name}"
 
 #: hala/tools/__init__.py:28
 msgid "number"
@@ -2121,3 +2234,7 @@ msgstr "Zipado"
 #: hala/tools/zipping.py:78
 msgid "pack the files and folders into one .zip beside them"
 msgstr "empacotar os arquivos e pastas em um .zip ao lado deles"
+
+#~ msgid "installed the Hala… entries for GNOME Files, Caja, Nemo and Thunar"
+#~ msgstr ""
+#~ "entradas “Hala…” instaladas para o Arquivos do GNOME, Caja, Nemo e Thunar"

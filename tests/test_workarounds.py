@@ -64,6 +64,7 @@ case "$1" in --list-types) printf 'text/uri-list\\ntext/plain\\n';;
 """)
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_}:{os.environ['PATH']}")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     assert wheelapp.clipboard_files() == [tmp_path / "pic.png"]
 
 

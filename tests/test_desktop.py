@@ -139,6 +139,8 @@ def test_app_entry_exec_parses() -> None:
 
 
 class FakeView:
+    path = "/JobView/1"  # (Plasma's job tracker answered; else a NotificationView stands in)
+
     def __init__(self, *_args: object) -> None:
         self.calls: list[tuple] = []
 

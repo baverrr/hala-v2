@@ -31,8 +31,16 @@ MARKDOWN = "# Title\n\nSome *text* and a list:\n\n- one\n- two\n"
 @pytest.fixture(autouse=True)
 def _own_config(tmp_path_factory: pytest.TempPathFactory,
                 monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the developer's own ~/.config/hala/limits.conf out of the tests."""
+    """Keep the developer's own settings out of the tests, and the tests out of them:
+    limits.conf, the other file managers' menus, the GNOME shortcut."""
+    from hala import filemanagers, shortcut
+
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path_factory.mktemp("config")))
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "")  # no desktop: nothing desktop-specific runs
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setattr(filemanagers, "DATA", home / ".local" / "share")
+    monkeypatch.setattr(filemanagers, "THUNAR_UCA", home / ".config" / "Thunar" / "uca.xml")
+    monkeypatch.setattr(shortcut, "DONE", home / ".config" / "hala" / "gnome-shortcut-added")
 
 
 @pytest.fixture(scope="session")

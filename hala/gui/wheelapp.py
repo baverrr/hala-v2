@@ -1,18 +1,18 @@
 """`hala wheel`: the format wheel without dragging to the screen edge.
 
-Dolphin's "Hala…" menu entry opens it for the selected files; the global shortcut (Meta+Shift+H
-by default) opens it for the files last copied with Ctrl+C. It's the drop zone's wheel in
-click mode, on every screen: it appears where the pointer is, and a click picks. Esc, a click
-outside the wheel, or two idle minutes close it.
+The file manager's "Hala…" menu entry opens it for the selected files; the global shortcut
+(Meta+Shift+H by default) opens it for the files last copied with Ctrl+C. It's the drop zone's
+wheel in click mode, on every screen: it appears where the pointer is, and a click picks. Esc,
+a click outside the wheel, or two idle minutes close it.
 
-The clipboard is read with wl-paste, which works without focus (KWin offers the data-control
-protocol); Klipper's D-Bus interface is the fallback.
+The clipboard is read with wl-paste on Wayland, which works without focus (KWin and wlroots
+offer the data-control protocol; on GNOME wl-paste briefly takes focus instead), or xclip/xsel
+on X11. On Plasma, Klipper's D-Bus interface is the fallback.
 """
 
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +21,7 @@ from urllib.parse import unquote, urlparse
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from .. import session
 from ..i18n import _, ngettext
 from . import translate
 from .dropzone import launch
@@ -55,25 +56,51 @@ def parse_uri_list(text: str, skipped: list[str] | None = None) -> list[Path]:
     return found
 
 
+def parse_copied_text(text: str, skipped: list[str] | None = None) -> list[Path]:
+    """Files named in plain copied text (what xsel gets): one per line, as a path (Thunar,
+    Nemo and Caja copy those) or a file:// URL."""
+    found: list[Path] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("/"):
+            path = Path(line)
+            try:
+                usable = path.exists()
+            except (OSError, ValueError):
+                usable = False
+            candidates = [path] if usable else []
+        else:
+            candidates = parse_uri_list(line, skipped)
+        found += [p for p in candidates if p not in found]
+    return found
+
+
 def clipboard_files(skipped: list[str] | None = None) -> list[Path]:
     """The files last copied (Ctrl+C in Dolphin and most file managers), if any; copied
     files of other computers go to skipped."""
-    if shutil.which("wl-paste"):
+    reader = session.clipboard_reader()
+    if reader is not None:
         try:
-            listed = subprocess.run(["wl-paste", "--list-types"], capture_output=True,
-                                    text=True, timeout=3)
-            if listed.returncode != 0:
-                log.warning("wl-paste --list-types exited %d: %s", listed.returncode,
-                            listed.stderr.strip())
-            if URI_LIST in listed.stdout.split():
-                pasted = subprocess.run(["wl-paste", "--no-newline", "--type", URI_LIST],
-                                        capture_output=True, text=True, timeout=3)
-                if pasted.returncode != 0:
-                    log.warning("wl-paste exited %d: %s", pasted.returncode,
-                                pasted.stderr.strip())
-                return parse_uri_list(pasted.stdout, skipped)
+            if reader[0] == "wl-paste":  # asking wl-paste for a type the clipboard lacks fails
+                listed = subprocess.run(["wl-paste", "--list-types"], capture_output=True,
+                                        text=True, timeout=3)
+                if listed.returncode != 0:
+                    log.warning("wl-paste --list-types exited %d: %s", listed.returncode,
+                                listed.stderr.strip())
+                if URI_LIST not in listed.stdout.split():
+                    reader = None
+            if reader is not None:
+                pasted = subprocess.run(reader, capture_output=True, text=True, timeout=3)
+                if pasted.returncode == 0:
+                    if reader[0] == "xsel":  # text, not a file list: paths or URLs, by line
+                        return parse_copied_text(pasted.stdout, skipped)
+                    return parse_uri_list(pasted.stdout, skipped)
+                log.warning("%s exited %d: %s", reader[0], pasted.returncode,
+                            pasted.stderr.strip())
         except (OSError, subprocess.TimeoutExpired) as exc:
-            log.warning("wl-paste failed: %s", exc)
+            log.warning("reading the clipboard failed: %s", exc)
+    if not session.is_kde():
+        return []
     try:
         from gi.repository import Gio, GLib  # pyright: ignore[reportAttributeAccessIssue]
     except ImportError:
@@ -102,12 +129,13 @@ def main(files: list[Path], from_clipboard: bool = False) -> int:
                             "skipped).", "Only files on this computer can be used ({n} network "
                             "files skipped).", len(remote)).format(n=len(remote))
         elif from_clipboard:
-            body = _("Copy files first (Ctrl+C in Dolphin), then press the shortcut again.")
+            body = _("Copy files first (Ctrl+C in {app}), then press the shortcut "
+                     "again.").format(app=session.file_manager())
         else:
             body = _("No files were given.")
         notify(_("Nothing to convert"), body, "dialog-information")
         return 1
-    app = QApplication.instance() or QApplication(sys.argv[:1])
+    app = QApplication.instance() or QApplication(session.qt_args(sys.argv[0]))
     assert isinstance(app, QApplication)
     translate.install(app)
     app.setApplicationName("hala")

@@ -17,8 +17,8 @@ import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
+from . import filemanagers, i18n
 from . import formats as f
-from . import i18n
 from .i18n import N_
 from .registry import ANY, ROUTES, targets_for
 from .tools import Tool, tools
@@ -363,9 +363,12 @@ def exec_arg(path: str) -> str:
 
 
 def install(exe: str | None = None) -> list[Path]:
-    exe = exec_arg(exe or shutil.which("hala") or "hala")
+    """Dolphin's menus, the app entry, icon and KDE shortcut (the other file managers' entries
+    are filemanagers.install()). Returns the Dolphin menus written."""
+    raw = exe or shutil.which("hala") or "hala"
+    exe = exec_arg(raw)
     MENU_DIR.mkdir(parents=True, exist_ok=True)
-    uninstall()
+    uninstall(others=False)
     written = []
     for name, text in build_menus(exe).items():
         path = MENU_DIR / name
@@ -383,8 +386,10 @@ def install(exe: str | None = None) -> list[Path]:
     return written
 
 
-def uninstall() -> int:
+def uninstall(others: bool = True) -> int:
     """Remove the menus (and the per-user app entry) that install() wrote; the count is menus."""
+    if others:
+        filemanagers.uninstall()
     removed = 0
     for path in MENU_DIR.glob(f"{PREFIX}*.desktop"):
         if "X-Hala-Menu=" in path.read_text(errors="replace"):  # only our own files

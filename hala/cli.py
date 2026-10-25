@@ -56,6 +56,11 @@ def cmd_formats(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    from . import session
+
+    for line in session.describe():
+        print(line)
+    print()
     missing = 0
     for tool, purpose in EXTERNAL_TOOLS.items():
         path = shutil.which(tool)
@@ -284,17 +289,27 @@ def cmd_shelf(args: argparse.Namespace) -> int:
 
 
 def cmd_install_menus(args: argparse.Namespace) -> int:
-    from . import servicemenus
+    from . import filemanagers, servicemenus, shortcut
 
     if args.remove:
         removed = servicemenus.uninstall()
         print(ngettext("removed {n} Dolphin menu file", "removed {n} Dolphin menu files",
                        removed).format(n=removed))
+        if shortcut.remove_gnome():
+            print(_("removed the GNOME shortcut"))
         return 0
-    written = servicemenus.install()
+    exe = shutil.which("hala") or "hala"
+    written = servicemenus.install(exe)
     print(ngettext("installed {n} Dolphin menu file in {folder}",
                    "installed {n} Dolphin menu files in {folder}", len(written)).format(
         n=len(written), folder=servicemenus.MENU_DIR))
+    others = filemanagers.installed_for(filemanagers.install(exe))
+    if others:
+        print(_("Hala… is in the right-click menu of: {apps}").format(apps=", ".join(others)))
+    if "Thunar" not in others and shutil.which("thunar"):
+        print(_("for Thunar: start it once, then run this again"))
+    if shortcut.applies() and shortcut.add_gnome(exe):
+        print(_("added the GNOME shortcut Super+Shift+H (Settings > Keyboard to change it)"))
     return 0
 
 
@@ -318,7 +333,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_targets)
 
-    p = sub.add_parser("run", help=_("convert with Plasma progress + notifications (for menus)"))
+    p = sub.add_parser("run",
+                       help=_("convert with desktop progress + notifications (for menus)"))
     p.add_argument("files", nargs="+")
     what = p.add_mutually_exclusive_group()
     what.add_argument("-t", "--to",
@@ -366,7 +382,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_shelf)
 
     p = sub.add_parser("install-menus",
-                       help=_("add (or --remove) the Dolphin menus, app entry and shortcut"))
+                       help=_("add (or --remove) the file manager menus, app entry and "
+                              "shortcut"))
     p.add_argument("--remove", action="store_true")
     p.set_defaults(func=cmd_install_menus)
 
@@ -465,11 +482,9 @@ def _report_crash(command: str, exc: BaseException) -> None:
     message = (str(exc) if isinstance(exc, ConversionError)
                else _("Hala hit a bug: {error}\n\nDetails: {log}").format(error=exc,
                                                                           log=CRASH_LOG))
-    if kdialog := shutil.which("kdialog"):
-        import subprocess
+    from . import session
 
-        subprocess.Popen([kdialog, "--title", "Hala", "--sorry", message],
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+    session.error_dialog(message)
 
 
 if __name__ == "__main__":

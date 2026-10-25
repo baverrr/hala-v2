@@ -8,7 +8,7 @@
   <a href="https://github.com/baverrr/hala-v2/actions/workflows/codeql.yml"><img src="https://github.com/baverrr/hala-v2/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
 </p>
 
-A local file converter for KDE Plasma. Drag files to the edge of the screen, pick a format on
+A local file converter for Linux desktops, made on KDE Plasma. Drag files to the edge of the screen, pick a format on
 a wheel, and the results appear next to the originals. It also compresses files to a size,
 strips metadata, merges and splits PDFs, reads QR codes, trims and joins video and audio,
 holds files on a floating shelf, and crops, annotates and redacts pictures and PDFs.
@@ -82,8 +82,9 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
   shapes, freehand, text, and redaction by black box or pixelation, with undo. PDFs are
   edited page by page, and edited pages are flattened so the text underneath is really gone.
   It always saves a copy.
-- **Plasma-native feedback:** progress appears in Plasma's job tracker with a working Cancel
-  button, and a notification offers **Open** or **Show in folder** when the work is done.
+- **Desktop-native feedback:** progress appears in Plasma's job tracker (elsewhere, in a
+  notification) with a working Cancel button, and a notification offers **Open** or **Show in
+  folder** when the work is done.
 - **Never overwrites anything.** Results go next to the originals as `name.ext`, or
   `name (2).ext` if that's taken.
 - **Gentle on the desktop.** Work runs at low CPU and disk priority, two files at a time.
@@ -91,7 +92,8 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 ## Install
 
 Hala is made for **Kubuntu 25.04 or later, or Ubuntu with KDE Plasma 6** (Wayland). It's built
-and tested on Ubuntu 26.04 with Plasma 6.6.
+and tested on Ubuntu 26.04 with Plasma 6.6. It also runs on GNOME, Cinnamon, Xfce, MATE and
+wlroots compositors (Sway, Hyprland…), on Wayland or X11: see [Other desktops](#other-desktops).
 
 ### From the release (recommended)
 
@@ -155,10 +157,12 @@ Wayland doesn't let an app see a drag until it reaches one of the app's own wind
 why the strip exists. Two other ways open the same wheel, in click mode, wherever the pointer
 is:
 
-- **Right-click files in Dolphin → Hala…**
+- **Right-click files in Dolphin → Hala…** (or in GNOME Files, Caja, Nemo or Thunar: see
+  [Other desktops](#other-desktops)).
 - **Copy files (Ctrl+C in Dolphin or most file managers), then press Meta+Shift+H.** To change
   the key, look for **Hala wheel** in System Settings › Keyboard › Shortcuts. The shortcut is
-  set up the first time you log in after installing.
+  set up the first time you log in after installing. On GNOME it's added the first time the
+  drop zone starts, under Settings › Keyboard › Custom Shortcuts.
 
 Click a petal or bubble to pick, or click outside the wheel or press **Esc** to cancel.
 
@@ -195,6 +199,32 @@ Select one or more files in Dolphin and right-click:
 
 Conversions started from Dolphin show progress in Plasma's job tracker. Cancel stops them
 cleanly, and no half-written files are left behind.
+
+### Other desktops
+
+Plasma is where Hala is at home, but everything works elsewhere, with the desktop's own
+equivalents. `hala doctor` shows what Hala found.
+
+| | Plasma | wlroots (Sway, Hyprland…) | GNOME (Wayland) | X11 (Xfce, MATE, Cinnamon…) |
+|---|---|---|---|---|
+| Drop zone, wheel, shelf | layer shell | layer shell | through XWayland | always-on-top windows |
+| Progress and Cancel | job tracker | notification | notification | notification |
+| Right-click **Hala…** | Dolphin (full menus) | your file manager below | GNOME Files | Caja, Nemo, Thunar |
+| Shortcut for copied files | set up for you | bind it yourself | set up for you | bind it yourself |
+| Clipboard | wl-clipboard | wl-clipboard | wl-clipboard | xclip or xsel |
+
+- **Right-click entries.** GNOME Files and Caja get **Hala…** and **Crop, annotate, redact…**
+  through their Python extensions (`sudo apt install python3-nautilus` or `python3-caja`, then
+  restart the file manager); Nemo through Nemo actions; Thunar through custom actions, added
+  to your own list by `hala install-menus` (start Thunar once first). Only Dolphin gets the
+  full **Convert to** menus; elsewhere **Hala…** opens the wheel with everything on it.
+- **Binding the shortcut yourself:** bind `hala wheel --clipboard` to a key in your desktop's
+  keyboard settings (or Sway/Hyprland config).
+- **On GNOME** the strip and wheel run as X11 windows, because GNOME doesn't let Wayland apps
+  place windows on the screen edge. Dragging from Wayland apps onto them works as usual. The
+  tray icon needs the AppIndicator extension (Ubuntu has it).
+- **On X11** a window manager that ignores "always on top" can hide the strip behind other
+  windows.
 
 ### Tools
 
@@ -384,10 +414,9 @@ and [CodeQL](https://codeql.github.com/) scans every push.
 
 ## Known limitations
 
-- **KDE Plasma on Wayland only, really.** The drop zone needs Plasma's layer-shell support to
-  sit on the screen edge and above other windows. On X11 or other desktops it falls back to
-  ordinary windows, which is untested. Notifications and job progress use Plasma's own
-  services.
+- **Tested day to day on Plasma only.** Other desktops ([what differs](#other-desktops)) are
+  covered by the automated tests and a check on X11, not yet by daily use. Only Dolphin gets
+  the full **Convert to** menus; other file managers get **Hala…**, which opens the wheel.
 - **No "hold Shift while dragging anywhere".** Wayland doesn't let apps watch drags that start
   in other apps. Drag to the strip at the screen edge, or use [Hala… or the
   shortcut](#without-dragging-to-the-edge) instead.
@@ -447,7 +476,8 @@ The tests convert real sample files with the real tools (LibreOffice tests are m
 | `hala/limits.py` | size, free-space and zip-bomb limits |
 | `hala/engines/` | images, media, documents, PDF, archives |
 | `hala/tools/` | compress, metadata, PDF, QR, media edits, zip |
-| `hala/actions.py`, `desktop.py` | copy/move/phone actions; Plasma progress and notifications |
+| `hala/actions.py`, `desktop.py` | copy/move/phone actions; progress and notifications |
+| `hala/session.py`, `filemanagers.py`, `shortcut.py` | which desktop this is; other file managers' entries; the GNOME shortcut |
 | `hala/editing.py` | the editor's document model, PDF pages and saving |
 | `hala/gui/` | drop zone, wheel, dialogs, shelf, editor, layer-shell bindings |
 | `hala/servicemenus.py` | the generated Dolphin menus and app entry |
