@@ -28,8 +28,10 @@ from PySide6.QtWidgets import (
 )
 
 from .. import formats as f
+from ..i18n import _, n_files
 from ..runner import local_inputs
 from ..tools import Param, Tool, format_time, parse_time
+from . import translate
 
 PREVIEW_WIDTH = 220
 
@@ -39,17 +41,18 @@ class ToolDialog(QDialog):
         super().__init__()
         self.tool, self.files = tool, list(files)
         self.fields: dict[str, QWidget] = {}
-        self.setWindowTitle(f"{tool.label} - Hala")
+        self.setWindowTitle(f"{_(tool.label)} - Hala")
         self.setWindowIcon(QIcon.fromTheme("hala"))
         layout = QVBoxLayout(self)
-        what = files[0].name if len(files) == 1 else f"{len(files)} files"
-        intro = QLabel(f"<b>{what}</b><br>{tool.help[:1].upper() + tool.help[1:]}.")
+        what = files[0].name if len(files) == 1 else n_files(len(files))
+        about = _(tool.help)
+        intro = QLabel(f"<b>{what}</b><br>{about[:1].upper() + about[1:]}.")
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
         self.order: QListWidget | None = None
         if tool.combine:
-            layout.addWidget(QLabel("Order (drag to rearrange):"))
+            layout.addWidget(QLabel(_("Order (drag to rearrange):")))
             self.order = QListWidget()
             self.order.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
             for p in files:
@@ -61,12 +64,12 @@ class ToolDialog(QDialog):
         for param in tool.visible_params(files):
             widget = self._field(param)
             self.fields[param.name] = widget
-            label = param.label + (f" ({param.unit})" if param.unit else "")
+            label = _(param.label) + (f" ({_(param.unit)})" if param.unit else "")
             if isinstance(widget, QCheckBox):
                 form.addRow("", widget)
             else:
-                form.addRow(label + ":", widget)
-                widget.setToolTip(param.help)
+                form.addRow(_("{setting}:").format(setting=label), widget)
+                widget.setToolTip(_(param.help))
         layout.addLayout(form)
 
         self.error = QLabel()
@@ -81,7 +84,7 @@ class ToolDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                                    | QDialogButtonBox.StandardButton.Cancel)
         ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        ok.setText(tool.button or tool.label)
+        ok.setText(_(tool.button or tool.label))
         ok.setIcon(QIcon.fromTheme(tool.icon))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -102,27 +105,29 @@ class ToolDialog(QDialog):
             spin.setValue(int(default or 1))
             return spin
         if param.kind == "bool":
-            check = QCheckBox(param.label)
+            check = QCheckBox(_(param.label))
             check.setChecked(bool(default))
-            check.setToolTip(param.help)
+            check.setToolTip(_(param.help))
             return check
         if param.kind == "choice":
             combo = QComboBox()
-            combo.addItems(list(param.choices))
-            combo.setCurrentText(str(default))
+            for choice in param.choices:  # shown translated, read back as the value itself
+                combo.addItem(_(choice), choice)
+            combo.setCurrentIndex(max(0, combo.findData(str(default))))
             return combo
         line = QLineEdit()
         if param.kind == "password":
             line.setEchoMode(QLineEdit.EchoMode.Password)
-            line.setPlaceholderText(param.help)
+            line.setPlaceholderText(_(param.help))
             return line
         if param.kind == "time":
             line.setText(format_time(default) if default else "")
-            line.setPlaceholderText("0:00" if param.name != "end" else "the end")
+            line.setPlaceholderText("0:00" if param.name != "end" else _("the end"))
         else:
             line.setText(str(default or ""))
             hint = param.placeholder(self.files) if param.placeholder else ""
-            line.setPlaceholderText(f"now: {hint}" if hint else param.help)
+            line.setPlaceholderText(_("now: {value}").format(value=hint) if hint
+                                    else _(param.help))
         return line
 
     # --- trim previews ----------------------------------------------------------------------
@@ -130,7 +135,8 @@ class ToolDialog(QDialog):
     def _add_trim_previews(self, layout: QVBoxLayout) -> None:
         self._length = _duration(self.files[0])
         if self._length:
-            layout.addWidget(QLabel(f"Length: {format_time(self._length)}"))
+            layout.addWidget(QLabel(_("Length: {length}").format(
+                length=format_time(self._length))))
         row = QHBoxLayout()
         self.previews = (QLabel(), QLabel())
         for label in self.previews:
@@ -165,10 +171,12 @@ class ToolDialog(QDialog):
                            timeout=10, check=False)
             pixmap = QPixmap(str(frame))
             if pixmap.isNull():
-                label.setText(f"{name}: no frame")
+                label.setText(_("start: no frame") if name == "start"
+                               else _("end: no frame"))
             else:
                 label.setPixmap(pixmap)
-            label.setToolTip(f"{name} at {format_time(at)}")
+            label.setToolTip((_("start at {time}") if name == "start" else _("end at {time}"))
+                             .format(time=format_time(at)))
 
     # --- result -----------------------------------------------------------------------------
 
@@ -180,7 +188,7 @@ class ToolDialog(QDialog):
             elif isinstance(widget, QCheckBox):
                 out[name] = widget.isChecked()
             elif isinstance(widget, QComboBox):
-                out[name] = widget.currentText()
+                out[name] = widget.currentData()
             elif isinstance(widget, QLineEdit):
                 # A password is taken exactly as typed: its spaces are part of it.
                 masked = widget.echoMode() == QLineEdit.EchoMode.Password
@@ -218,6 +226,8 @@ def _duration(path: Path) -> float:
 def ask(tool: Tool, files: list[Path]) -> tuple[list[Path], dict[str, Any]] | None:
     """Show the dialog; (files in chosen order, settings), or None if cancelled."""
     app = QApplication.instance() or QApplication([])
+    assert isinstance(app, QApplication)
+    translate.install(app)
     QApplication.setDesktopFileName("hala")
     dialog = ToolDialog(tool, files)
     accepted = dialog.exec() == QDialog.DialogCode.Accepted

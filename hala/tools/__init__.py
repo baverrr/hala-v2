@@ -16,6 +16,7 @@ from typing import Any
 
 from .. import formats as f
 from ..convert import produce
+from ..i18n import N_, _, ngettext
 from ..registry import ANY  # in Tool.sources: any file or folder
 from ..runner import Context, ConversionError
 
@@ -23,8 +24,14 @@ Params = dict[str, Any]
 Engine = Callable[[Context, list[Path], Params], Path]
 
 
+# How a wrong value's kind is named: "Loudness: 'loud' isn't a valid number".
+KIND_NAMES = {"float": N_("number"), "int": N_("whole number"), "time": N_("time")}
+
+
 @dataclass(frozen=True)
 class Param:
+    """label, help and unit are English, marked with N_(): shown through _()."""
+
     name: str
     label: str
     # "float", "int", "str", "password" (a str, masked and never logged), "bool", "choice"
@@ -68,14 +75,20 @@ class Param:
             if self.kind == "time":
                 return raw if isinstance(raw, int | float) else parse_time(str(raw))
         except ValueError:
-            raise ConversionError(f"{self.label}: {raw!r} isn't a valid {self.kind}") from None
+            raise ConversionError(_("{setting}: {value!r} isn't a valid {kind}").format(
+                setting=_(self.label), value=raw, kind=_(KIND_NAMES.get(self.kind, self.kind))
+            )) from None
         if self.kind == "choice" and raw not in self.choices:
-            raise ConversionError(f"{self.label}: pick one of {', '.join(self.choices)}")
+            raise ConversionError(_("{setting}: pick one of {choices}").format(
+                setting=_(self.label), choices=", ".join(self.choices)))
         return str(raw)
 
 
 @dataclass(frozen=True)
 class Tool:
+    """label, help, done, button and short are English, marked with N_(): shown through _().
+    suffix() and output_name() are called at run time, so they translate themselves."""
+
     name: str  # CLI name: "compress"
     label: str  # menu and wheel: "Compress"
     sources: frozenset[str]
@@ -134,6 +147,11 @@ def format_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:05.2f}" if h else f"{m}:{s:05.2f}"
 
 
+def needs_files(tool: Tool) -> str:
+    return ngettext("{tool} needs at least {n} file", "{tool} needs at least {n} files",
+                    tool.min_files).format(tool=_(tool.label), n=tool.min_files)
+
+
 def run_tool(tool: Tool, inputs: list[Path], params: Params | None = None, *,
              outdir: Path | None = None, on_progress: Callable[[float], None] | None = None,
              cancel_event: threading.Event | None = None,
@@ -141,12 +159,13 @@ def run_tool(tool: Tool, inputs: list[Path], params: Params | None = None, *,
     inputs = [p.expanduser().resolve() for p in inputs]
     for p in inputs:
         if not p.exists():
-            raise ConversionError(f"{p} does not exist")
+            raise ConversionError(_("{path} does not exist").format(path=p))
     if not tool.accepts(inputs):
         if len(inputs) < tool.min_files:
-            raise ConversionError(f"{tool.label} needs at least {tool.min_files} files")
+            raise ConversionError(needs_files(tool))
         odd = next(p for p in inputs if f.ext_of(p) not in tool.sources)
-        raise ConversionError(f"{tool.label} doesn't work on {f.ext_of(odd) or odd.name} files")
+        raise ConversionError(_("{tool} doesn't work on {format} files").format(
+            tool=_(tool.label), format=f.ext_of(odd) or odd.name))
     if tool.tidy is not None:
         inputs = tool.tidy(inputs)
     values = tool.resolve(inputs, params)
@@ -184,8 +203,8 @@ def tool(name: str) -> Tool:
     try:
         return tools()[name]
     except KeyError:
-        raise ConversionError(f"no tool called {name!r} "
-                              f"(there's {', '.join(tools())})") from None
+        raise ConversionError(_("no tool called {name!r} (there's {tools})").format(
+            name=name, tools=", ".join(tools()))) from None
 
 
 def tools_for(files: Sequence[Path]) -> list[Tool]:

@@ -13,12 +13,14 @@ from pathlib import Path
 
 from .. import formats as f
 from ..engines import pdf
+from ..i18n import N_, _
 from ..runner import Context, ConversionError, local_inputs
 from . import Param, Params, Tool, pdftools
 
 EXIFTOOL_TYPES = frozenset({"jpg", "png", "webp", "heic", "avif", "tiff", "gif", "pdf"})
 MEDIA_TYPES = frozenset({*f.VIDEO_IN, *f.AUDIO_IN})
-REMOVE = ("everything", "location", "nothing")
+# The values are also the CLI's; the dialog shows them translated.
+REMOVE = (N_("everything"), N_("location"), N_("nothing"))
 FIELDS = ("title", "author", "comment")
 # Where each field lives: exiftool tag names (written wherever the format has them) and
 # ffmpeg's container tag.
@@ -68,7 +70,7 @@ def edit(ctx: Context, inputs: list[Path], params: Params) -> Path:
     out = ctx.workdir / f"out{f.split_name(src.name)[1]}"
     sets = {k: params[k] for k in FIELDS if params.get(k)}
     if params["remove"] == "nothing" and not sets:
-        raise ConversionError("nothing to change: pick what to remove or fill in a field")
+        raise ConversionError(_("nothing to change: pick what to remove or fill in a field"))
     if ext == "pdf":
         pdf.require_unlocked(src)
     if ext in EXIFTOOL_TYPES:
@@ -110,7 +112,8 @@ def edit(ctx: Context, inputs: list[Path], params: Params) -> Path:
 
 
 def _suffix(params: Params) -> str:
-    return {"everything": "no metadata", "location": "no location"}.get(params["remove"], "edited")
+    return {"everything": _("no metadata"), "location": _("no location")}.get(
+        params["remove"], _("edited"))
 
 
 def _hint(field: str):
@@ -118,18 +121,18 @@ def _hint(field: str):
 
 
 TOOL = Tool(
-    "metadata", "Metadata", done="Metadata updated",
+    "metadata", N_("Metadata"), done=N_("Metadata updated"),
     sources=EXIFTOOL_TYPES | MEDIA_TYPES,
-    engine=edit, suffix=_suffix, icon="document-properties", button="Save copy",
+    engine=edit, suffix=_suffix, icon="document-properties", button=N_("Save copy"),
     params=(
-        Param("remove", "Remove", "choice", "everything", "which metadata to strip",
+        Param("remove", N_("Remove"), "choice", "everything", N_("which metadata to strip"),
               choices=REMOVE),
-        Param("title", "Title", "str", "", "set the title (blank: keep)",
+        Param("title", N_("Title"), "str", "", N_("set the title (blank: keep)"),
               placeholder=_hint("title")),
-        Param("author", "Author", "str", "", "set the author/artist (blank: keep)",
+        Param("author", N_("Author"), "str", "", N_("set the author/artist (blank: keep)"),
               placeholder=_hint("author")),
-        Param("comment", "Comment", "str", "", "set a comment (blank: keep)",
+        Param("comment", N_("Comment"), "str", "", N_("set a comment (blank: keep)"),
               placeholder=_hint("comment")),
     ),
-    help="strip personal data (e.g. where a photo was taken) or set title/author",
+    help=N_("strip personal data (e.g. where a photo was taken) or set title/author"),
 )

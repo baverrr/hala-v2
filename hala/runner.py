@@ -11,6 +11,8 @@ from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .i18n import _
+
 # Keep conversions from making the desktop laggy: nice 10 for CPU, and the lowest best-effort
 # I/O priority (ionice class 2, level 7).
 NICE = ["nice", "-n", "10", "ionice", "-c", "2", "-n", "7"]
@@ -45,7 +47,7 @@ class Cancelled(ConversionError):
 def require(tool: str) -> str:
     path = shutil.which(tool)
     if path is None:
-        raise ConversionError(f"'{tool}' is not installed (run `hala doctor`)")
+        raise ConversionError(_("'{tool}' is not installed (run `hala doctor`)").format(tool=tool))
     return path
 
 
@@ -68,7 +70,7 @@ class Context:
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():
-            raise Cancelled("cancelled")
+            raise Cancelled(_("cancelled"))
 
     def run(self, cmd: Sequence[str | os.PathLike[str]], *, cwd: Path | None = None,
             stdout_line: Callable[[str], None] | None = None,
@@ -94,7 +96,7 @@ class Context:
         self.check_cancelled()
         args = local_inputs([str(a) for a in cmd])
         if not args:
-            raise ConversionError("no command to run")
+            raise ConversionError(_("no command to run"))
         for tool in (args[0], NICE[0], NICE[3]):
             require(tool)
         proc = subprocess.Popen(
@@ -138,11 +140,13 @@ class Context:
         self.check_cancelled()
         name = Path(args[0]).name
         if timed_out.is_set():
-            raise ConversionError(f"{name} stopped responding (no result after {timeout:.0f} s)")
+            raise ConversionError(_("{name} stopped responding (no result after {seconds:.0f} s)")
+                                  .format(name=name, seconds=timeout))
         stderr = b"".join(stderr_chunks).decode(errors="replace")
         if code not in ok_codes:
-            tail = "\n".join(stderr.strip().splitlines()[-8:]) or f"exit code {code}"
-            raise ConversionError(f"{name} failed:\n{tail}")
+            tail = ("\n".join(stderr.strip().splitlines()[-8:])
+                    or _("exit code {code}").format(code=code))
+            raise ConversionError(_("{name} failed:\n{details}").format(name=name, details=tail))
         return "".join(out_lines), stderr, code
 
     def _watch(self, proc: subprocess.Popen[bytes], timeout: float | None,

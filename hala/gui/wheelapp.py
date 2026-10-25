@@ -21,6 +21,8 @@ from urllib.parse import unquote, urlparse
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from ..i18n import _, ngettext
+from . import translate
 from .dropzone import launch
 from .overlay import Overlay
 
@@ -96,16 +98,18 @@ def main(files: list[Path], from_clipboard: bool = False) -> int:
         from ..desktop import notify
 
         if remote:
-            body = (f"Only files on this computer can be used ({len(remote)} network "
-                    f"file{'s' * (len(remote) != 1)} skipped).")
+            body = ngettext("Only files on this computer can be used ({n} network file "
+                            "skipped).", "Only files on this computer can be used ({n} network "
+                            "files skipped).", len(remote)).format(n=len(remote))
         elif from_clipboard:
-            body = "Copy files first (Ctrl+C in Dolphin), then press the shortcut again."
+            body = _("Copy files first (Ctrl+C in Dolphin), then press the shortcut again.")
         else:
-            body = "No files were given."
-        notify("Nothing to convert", body, "dialog-information")
+            body = _("No files were given.")
+        notify(_("Nothing to convert"), body, "dialog-information")
         return 1
     app = QApplication.instance() or QApplication(sys.argv[:1])
     assert isinstance(app, QApplication)
+    translate.install(app)
     app.setApplicationName("hala")
     app.setDesktopFileName("hala")
     overlays = [Overlay(screen, launch) for screen in app.screens()]

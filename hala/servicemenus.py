@@ -18,6 +18,8 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from . import formats as f
+from . import i18n
+from .i18n import N_
 from .registry import ANY, ROUTES, targets_for
 from .tools import Tool, tools
 
@@ -36,6 +38,19 @@ MIME_DIRS = [Path("/usr/share/mime"), Path.home() / ".local" / "share" / "mime"]
 PACK = set(f.PACK_OUT)
 # When an extension's top glob weights tie, prefer the type in the family's own media tree.
 FAMILY_MEDIA = {"image": "image/", "video": "video/", "audio": "audio/"}
+
+# Text in the menu files and entries below, translated into every language Hala has: each
+# Name=English line gets a Name[de]=... line after it (see translated() and localize()).
+DESKTOP_TEXT = (
+    N_("Convert to"), N_("Hala tools"), N_("Crop, annotate, redact…"), N_("Hala…"),
+    N_("Put on shelf"), N_("File Converter"),
+    N_("Convert, compress and edit files locally: drag them to the screen edge"),
+    # Translators: search words for the application menu, separated (and ended) by ";".
+    N_("convert;converter;compress;pdf;image;video;audio;"),
+    N_("Open the wheel for copied files"), N_("Open the shelf"), N_("Hala wheel"),
+    N_("Open the format wheel for the files last copied with Ctrl+C"),
+)
+LOCALIZED_KEYS = ("Name", "GenericName", "Comment", "Keywords", "X-KDE-Submenu")
 
 ICONS = {f.FOLDER: "archive-extract", "pdf": "application-pdf", "zip": "application-zip",
          "tar.gz": "application-x-compressed-tar", "7z": "application-x-7z-compressed",
@@ -70,7 +85,7 @@ class MimeDb:
     def _read_subclasses(self, path: Path) -> None:
         if path.exists():
             for line in path.read_text().splitlines():
-                child, _, parent = line.partition(" ")
+                child, _sep, parent = line.partition(" ")
                 if parent:
                     self._parents.setdefault(child, set()).add(parent)
 
@@ -134,14 +149,16 @@ def _desktop_file(name: str, mimes: list[str], excludes: list[str], targets: lis
     lines = [
         "[Desktop Entry]", "Type=Service", f"X-Hala-Menu={name}",
         "X-KDE-ServiceTypes=KonqPopupMenu/Plugin", "X-KDE-Protocols=file",
-        f"MimeType={';'.join(mimes)};", "X-KDE-Submenu=Convert to",
+        f"MimeType={';'.join(mimes)};", *translated("X-KDE-Submenu", "Convert to"),
         "Icon=hala", f"Actions={';'.join(actions)};",
         "X-KDE-RequiredNumberOfUrls=1" if single else "X-KDE-MinNumberOfUrls=2",
     ]
     if excludes:
         lines.append(f"ExcludeServiceTypes={';'.join(excludes)};")
     for action, target in zip(actions, targets, strict=True):
-        lines += ["", f"[Desktop Action {action}]", f"Name={f.label(target)}",
+        context = "format" if target in f.LABELS else None
+        lines += ["", f"[Desktop Action {action}]",
+                  *translated("Name", f.english_label(target), context=context),
                   f"Icon={_icon(target, db)}", f'Exec="{exe}" run --to {target} %F']
     return "\n".join(lines) + "\n"
 
@@ -151,7 +168,7 @@ def _tool_file(t: Tool, mimes: list[str], excludes: list[str], exe: str) -> str:
     lines = [
         "[Desktop Entry]", "Type=Service", f"X-Hala-Menu=tool-{t.name}",
         "X-KDE-ServiceTypes=KonqPopupMenu/Plugin", "X-KDE-Protocols=file",
-        f"MimeType={';'.join(mimes)};", "X-KDE-Submenu=Hala tools", "Icon=hala",
+        f"MimeType={';'.join(mimes)};", *translated("X-KDE-Submenu", "Hala tools"), "Icon=hala",
         "Actions=run;",
     ]
     if t.combine:
@@ -159,7 +176,8 @@ def _tool_file(t: Tool, mimes: list[str], excludes: list[str], exe: str) -> str:
     if excludes:
         lines.append(f"ExcludeServiceTypes={';'.join(excludes)};")
     dots = "…" if t.asks else ""
-    lines += ["", "[Desktop Action run]", f"Name={t.label}{dots}", f"Icon={t.icon}",
+    lines += ["", "[Desktop Action run]", *translated("Name", t.label, suffix=dots),
+              f"Icon={t.icon}",
               f'Exec="{exe}" run --tool {t.name} %F']
     return "\n".join(lines) + "\n"
 
@@ -169,12 +187,12 @@ def _edit_file(mimes: list[str], excludes: list[str], exe: str) -> str:
     lines = [
         "[Desktop Entry]", "Type=Service", "X-Hala-Menu=edit",
         "X-KDE-ServiceTypes=KonqPopupMenu/Plugin", "X-KDE-Protocols=file",
-        f"MimeType={';'.join(mimes)};", "X-KDE-Submenu=Hala tools", "Icon=hala",
+        f"MimeType={';'.join(mimes)};", *translated("X-KDE-Submenu", "Hala tools"), "Icon=hala",
         "Actions=edit;",
     ]
     if excludes:
         lines.append(f"ExcludeServiceTypes={';'.join(excludes)};")
-    lines += ["", "[Desktop Action edit]", "Name=Crop, annotate, redact…",
+    lines += ["", "[Desktop Action edit]", *translated("Name", "Crop, annotate, redact…"),
               "Icon=draw-freehand", f'Exec="{exe}" edit %F']
     return "\n".join(lines) + "\n"
 
@@ -216,9 +234,35 @@ def build_menus(exe: str, db: MimeDb | None = None) -> dict[str, str]:
     editable = sorted({m for e in (*f.IMAGE_IN, "pdf") for m in db.mimes_for(e)})
     if editable:
         menus[f"{PREFIX}edit.desktop"] = _edit_file(editable, excludes_for(editable), exe)
-    menus[f"{PREFIX}shelf.desktop"] = SHELF_MENU.format(exe=exe)
-    menus[f"{PREFIX}wheel.desktop"] = WHEEL_MENU.format(exe=exe)
+    menus[f"{PREFIX}shelf.desktop"] = localize(SHELF_MENU.format(exe=exe))
+    menus[f"{PREFIX}wheel.desktop"] = localize(WHEEL_MENU.format(exe=exe))
     return menus
+
+
+def translated(key: str, msgid: str, *, context: str | None = None, suffix: str = "",
+               languages: Iterable[str] | None = None) -> list[str]:
+    """"Key=English" and a "Key[lang]=..." line for each language that translates msgid
+    (English text, never already translated: the menus are the same whoever builds them)."""
+    lines = [f"{key}={msgid}{suffix}"]
+    for lang in i18n.available() if languages is None else languages:
+        catalog = i18n.translator(lang)
+        text = catalog.gettext(msgid) if context is None else catalog.pgettext(context, msgid)
+        if text != msgid:
+            lines.append(f"{key}[{lang}]={text}{suffix}")
+    return lines
+
+
+def localize(text: str, languages: Iterable[str] | None = None) -> str:
+    """A fixed desktop entry (APP_ENTRY...) with a Key[lang]= line after each translatable
+    Key= line (Name, Comment...) whose whole value is marked text, as in DESKTOP_TEXT."""
+    out: list[str] = []
+    for line in text.splitlines():
+        key, eq, value = line.partition("=")
+        if eq and key in LOCALIZED_KEYS and value:
+            out += translated(key, value, languages=languages)
+        else:
+            out.append(line)
+    return "\n".join(out) + ("\n" if text.endswith("\n") else "")
 
 
 # Top level of the right-click menu, for any files: the wheel without dragging to the screen
@@ -329,13 +373,13 @@ def install(exe: str | None = None) -> list[Path]:
         path.chmod(0o755)  # Plasma 6 ignores service menus that aren't executable
         written.append(path)
     APP_DIR.mkdir(parents=True, exist_ok=True)
-    (APP_DIR / "hala.desktop").write_text(APP_ENTRY.format(exe=exe))
+    (APP_DIR / "hala.desktop").write_text(localize(APP_ENTRY.format(exe=exe)))
     (APP_DIR / "hala-link.desktop").write_text(LINK_ENTRY.format(exe=exe))
     ICON_DIR.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ICON, ICON_DIR / "hala.svg")
     SHORTCUT_DIR.mkdir(parents=True, exist_ok=True)
     (SHORTCUT_DIR / SHORTCUT_FILE).write_text(
-        SHORTCUT_ENTRY.format(exe=exe, shortcut=DEFAULT_SHORTCUT))
+        localize(SHORTCUT_ENTRY.format(exe=exe, shortcut=DEFAULT_SHORTCUT)))
     return written
 
 

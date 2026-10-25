@@ -11,7 +11,7 @@
 A local file converter for KDE Plasma. Drag files to the edge of the screen, pick a format on
 a wheel, and the results appear next to the originals. It also compresses files to a size,
 strips metadata, merges and splits PDFs, reads QR codes, trims and joins video and audio,
-holds files on a floating shelf, and crops, annotates and redacts pictures.
+holds files on a floating shelf, and crops, annotates and redacts pictures and PDFs.
 
 Everything happens on your own computer, using ffmpeg, libvips, LibreOffice, pandoc, poppler,
 qpdf, Ghostscript, exiftool, zbar and 7-Zip. Nothing is uploaded anywhere.
@@ -76,6 +76,8 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 - **Actions:** put files on the shelf, send them to your phone with KDE Connect, copy or move
   them to a folder, or zip them all, from bubbles under the wheel.
 - **Shelf:** a small floating window that holds files until you drag them somewhere else.
+- **In your language:** English, German, Spanish, French and Brazilian Portuguese, following
+  the desktop's language setting.
 - **Picture and PDF editor:** crop (with aspect presets), rotate, flip, arrows, lines,
   shapes, freehand, text, and redaction by black box or pixelation, with undo. PDFs are
   edited page by page, and edited pages are flattened so the text underneath is really gone.
@@ -265,12 +267,14 @@ orientation is applied to the pixels instead.
 </p>
 
 **PDFs** open page by page (◀ **Page n of m** ▶, or Page Up / Page Down), with the drawing
-and redaction tools; crop, rotate and flip are left out, as they'd change the page size. Each
-page keeps its own edits and undo history. **Save copy** writes `name (edited).pdf`:
+and redaction tools, crop, rotate and flip. Each page keeps its own edits and undo history.
+**Save copy** writes `name (edited).pdf`:
 
-- **Pages you edited are flattened into pictures,** so text under a black box can't be
-  selected, searched or copied out of the file. That's what makes the redaction real, but it
-  also means those pages' text is no longer selectable.
+- **Pages you edited are flattened into pictures,** so text under a black box (or cut off by
+  a crop) can't be selected, searched or copied out of the file. That's what makes the
+  redaction real, but it also means those pages' text is no longer selectable. A cropped page
+  becomes the size of what you kept.
+- **Pages you only rotated are turned, not redrawn,** so they keep their text and links.
 - **Pages you didn't touch are kept exactly as they were**, text and all.
 - **The original's metadata, bookmarks and attached files aren't carried over**, because
   they're common places for the information you meant to remove. Form fields and links on
@@ -301,6 +305,7 @@ hala action zip|copy|move|phone|shelf FILES
 hala edit PICTURE-OR-PDF...
 hala wheel FILES | --clipboard           # the wheel without dragging to the edge
 hala formats                             # the whole conversion table
+hala limits [set NAME N | reset [NAME]]  # show or change the size limits
 hala doctor                              # check the converters are installed
 ```
 
@@ -365,6 +370,12 @@ Files come from anywhere, so Hala treats them as untrusted:
   disk) aren't packed, and an archive that would unpack to that ratio is thrown away.
 - Jobs check for free space first (twice the input), and pictures over 500 megapixels are
   refused.
+- **You can change those limits** for very large but legitimate inputs: `hala limits` shows
+  them, and `hala limits set max_megapixels 2000` (or `max_archive_entries`,
+  `max_unpack_ratio`, `unpack_floor_gb`) changes one. They're kept in
+  `~/.config/hala/limits.conf` and take effect at the next job, even in a running drop zone.
+  Each has a ceiling, so a typo can't switch a check off, and a refusal names the setting to
+  raise.
 - Nothing is ever overwritten, and every program gets full, absolute paths, so a file named
   `-rf` is just a file name.
 
@@ -400,14 +411,16 @@ and [CodeQL](https://codeql.github.com/) scans every push.
   left out). The result's notification says when any of this happened.
 - **Edited PDF pages become pictures.** Their text can't be selected or searched any more, and
   their links and form fields are gone (unedited pages keep all of theirs). The saved copy has
-  no bookmarks, attached files or document metadata, and there's no crop or rotate for PDFs.
+  no bookmarks, attached files or document metadata. (Pages that were only rotated keep
+  their text.)
   Saved copies are flat, so there are no layers to go back to.
 - **Phone sending needs KDE Connect** with a paired phone on the same network.
 - **The newest parts have had the least real-world use:** the shelf, the action bubbles,
   phone sending, the wheel shortcut and PDF editing. They're tested, but mostly offscreen,
   not yet in daily use like the converter.
-- **The size limits are fixed.** Very large but legitimate inputs, such as a picture over 500
-  megapixels or an archive of mostly empty disk images, are refused rather than asked about.
+- **Size limits are set ahead of time, not asked about.** A picture over 500 megapixels or
+  an archive of mostly empty disk images is refused with the setting to change (`hala limits
+  set …`), rather than Hala asking at that moment.
 - **English only.**
 
 ## Development
@@ -438,7 +451,32 @@ The tests convert real sample files with the real tools (LibreOffice tests are m
 | `hala/editing.py` | the editor's document model, PDF pages and saving |
 | `hala/gui/` | drop zone, wheel, dialogs, shelf, editor, layer-shell bindings |
 | `hala/servicemenus.py` | the generated Dolphin menus and app entry |
+| `hala/i18n.py`, `hala/locale/` | translations: the gettext catalogues and how they're loaded |
 | `packaging/` | the `.deb` builder and the icon generator |
+| `tools/i18n.py` | extracting strings and updating the translations |
+
+### Translations
+
+Hala speaks English, German, Spanish, French and Brazilian Portuguese. It follows the desktop's
+language (`LANGUAGE`, then `LC_ALL`, `LC_MESSAGES`, `LANG`); `HALA_LANGUAGE=de` overrides it
+for Hala alone, and `HALA_LANGUAGE=C` keeps it English. The Dolphin menus and app entry carry
+every language at once, so they follow the language of whoever is logged in. Qt's own buttons
+(Save, Cancel...) come from Qt's translations. The first translations are machine-written
+drafts, waiting for a native speaker's review.
+
+The text lives in plain gettext catalogues, `hala/locale/<lang>.po`, which Hala reads
+directly: there's no compile step, and any `.po` editor (Lokalize, Poedit) or Weblate works on
+them. In the code, text is wrapped in `_()` (or `ngettext()` for plurals); text defined once
+and shown later, like a tool's label, is marked with `N_()` and passed through `_()` where it's
+shown. Placeholders are named, `_("{name} is already {format}").format(...)`, so translators
+can move them. With `gettext` installed (`apt install gettext`):
+
+```bash
+python3 tools/i18n.py update       # re-extract hala/locale/hala.pot and merge it into each .po
+python3 tools/i18n.py new it       # start a new language, hala/locale/it.po
+python3 tools/i18n.py check        # every .po is valid and keeps its {placeholders}
+python3 tools/i18n.py stats        # how much of each language is done
+```
 
 ## Privacy and terms
 

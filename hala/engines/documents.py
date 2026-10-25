@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from ..formats import ext_of
+from ..i18n import _, ngettext
 from ..runner import Cancelled, Context, ConversionError
 
 # LibreOffice gets its own profiles so it never attaches to (or is blocked by) a LibreOffice
@@ -66,7 +67,8 @@ def office(ctx: Context, src: Path, dst_ext: str) -> Path:
     produced = list(outdir.iterdir())
     if not produced:
         # soffice exits 0 even when it can't load or export the file.
-        raise ConversionError(f"LibreOffice could not convert this file to {dst_ext.upper()}")
+        raise ConversionError(_("LibreOffice could not convert this file to {format}").format(
+            format=dst_ext.upper()))
     return produced[0]
 
 
@@ -129,6 +131,13 @@ RAW_SOURCE = re.compile(r"""\b(?:src|poster|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|(
 URI_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
+def _names(shown: str, count: int, listed: int = 3) -> str:
+    """'a.png, b.png, c.png' plus ' and N more' for the ones not listed."""
+    if count <= listed:
+        return shown
+    return shown + " " + _("and {n} more").format(n=count - listed)
+
+
 def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     if dst_ext == "pdf" and importlib.util.find_spec("weasyprint") is None:
         # No WeasyPrint (and pandoc's default PDF route needs LaTeX): DOCX, then LibreOffice.
@@ -161,9 +170,10 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     _confine(tree, allowed, drop_raw=dst_ext == "pdf")
     if left_out:
         shown = ", ".join(PurePosixPath(t).name or t for t in left_out[:3])
-        more = f" and {len(left_out) - 3} more" if len(left_out) > 3 else ""
-        ctx.note(f"left out {len(left_out)} picture{'s' * (len(left_out) != 1)} from outside "
-                 f"the document's folder: {shown}{more}")
+        ctx.note(ngettext("left out {n} picture from outside the document's folder: {names}",
+                          "left out {n} pictures from outside the document's folder: {names}",
+                          len(left_out)).format(n=len(left_out),
+                                                names=_names(shown, len(left_out))))
     # Named after the source: a standalone HTML page without a title is titled by this name.
     parsed = ctx.workdir / "parsed" / f"{src.stem}.json"
     parsed.parent.mkdir(exist_ok=True)  # a second pass (the LibreOffice fallback) reuses it
@@ -191,16 +201,19 @@ def pandoc(ctx: Context, src: Path, dst_ext: str) -> Path:
     except ConversionError as exc:
         # Installed but broken (e.g. its Pango doesn't match) or crashed on this document:
         # the LibreOffice route still works.
-        reason = str(exc).strip().splitlines()[-1] if str(exc).strip() else "no reason given"
-        ctx.note(f"WeasyPrint failed ({reason[:120]}); made through LibreOffice instead")
+        reason = (str(exc).strip().splitlines()[-1] if str(exc).strip()
+                  else _("no reason given"))
+        ctx.note(_("WeasyPrint failed ({reason}); made through LibreOffice instead").format(
+            reason=reason[:120]))
         return _through_office(ctx, src)
     unloaded = [line.removeprefix("left-out\t") for line in printed.splitlines()
                 if line.startswith("left-out\t")]
     if unloaded:
         shown = ", ".join(PurePosixPath(urlparse(u).path).name or u for u in unloaded[:3])
-        more = f" and {len(unloaded) - 3} more" if len(unloaded) > 3 else ""
-        ctx.note(f"left out {len(unloaded)} picture{'s' * (len(unloaded) != 1)} WeasyPrint "
-                 f"couldn't load: {shown}{more}")
+        ctx.note(ngettext("left out {n} picture WeasyPrint couldn't load: {names}",
+                          "left out {n} pictures WeasyPrint couldn't load: {names}",
+                          len(unloaded)).format(n=len(unloaded),
+                                                names=_names(shown, len(unloaded))))
     return pdf
 
 

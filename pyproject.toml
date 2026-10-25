@@ -19,7 +19,7 @@ include = ["hala*"]
 version = {attr = "hala.__version__"}
 
 [tool.setuptools.package-data]
-hala = ["data/*"]
+hala = ["data/*", "locale/*.po"]
 
 [tool.ruff]
 line-length = 100

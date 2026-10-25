@@ -2,8 +2,8 @@
 
 The window only collects gestures; every change is a Step on a Document (hala/editing.py), so
 undo is trivial and what you see is exactly what gets saved. Saving never touches the original.
-A PDF is edited page by page (each page its own Document); crop, rotate and flip are left out
-for PDFs, as they'd change the page size, and edited pages are flattened when saved.
+A PDF is edited page by page (each page its own Document). Edited pages are flattened when
+saved, a cropped one at its new size; a page that was only rotated keeps its text.
 """
 
 from __future__ import annotations
@@ -54,6 +54,7 @@ from ..editing import (
     PdfPages,
     Step,
     apply,
+    edited_name,
     load_image,
     output_ext,
     save_copy,
@@ -61,26 +62,29 @@ from ..editing import (
     save_pdf_copy,
 )
 from ..engines.pdf import PasswordNeeded, WrongPassword
+from ..i18n import N_, _, ngettext, pgettext
 from ..runner import ConversionError
+from . import translate
 
 LOG = Path.home() / ".cache" / "hala" / "editor.log"
 
-# (key, label, theme icon, hint)
+# (key, label, theme icon, hint); label and hint are shown through _().
 TOOLS: list[tuple[Kind, str, str, str]] = [
-    ("crop", "Crop", "transform-crop", "Drag the area to keep, then press Enter"),
-    ("arrow", "Arrow", "draw-arrow", "Drag from the tail to the point"),
-    ("line", "Line", "draw-line", "Drag"),
-    ("rect", "Rectangle", "draw-rectangle", "Drag"),
-    ("ellipse", "Ellipse", "draw-ellipse", "Drag"),
-    ("pen", "Pen", "draw-freehand", "Draw freely"),
-    ("text", "Text", "draw-text", "Click where the text should start"),
-    ("black", "Redact (black box)", "edit-clear",
-     "Drag over what to hide; it is blacked out for good"),
-    ("pixelate", "Redact (pixelate)", "view-grid",
-     "Drag over what to hide; it is pixelated for good"),
+    ("crop", N_("Crop"), "transform-crop", N_("Drag the area to keep, then press Enter")),
+    ("arrow", N_("Arrow"), "draw-arrow", N_("Drag from the tail to the point")),
+    ("line", N_("Line"), "draw-line", N_("Drag")),
+    ("rect", N_("Rectangle"), "draw-rectangle", N_("Drag")),
+    ("ellipse", N_("Ellipse"), "draw-ellipse", N_("Drag")),
+    ("pen", N_("Pen"), "draw-freehand", N_("Draw freely")),
+    ("text", N_("Text"), "draw-text", N_("Click where the text should start")),
+    ("black", N_("Redact (black box)"), "edit-clear",
+     N_("Drag over what to hide; it is blacked out for good")),
+    ("pixelate", N_("Redact (pixelate)"), "view-grid",
+     N_("Drag over what to hide; it is pixelated for good")),
 ]
 SHAPES: set[Kind] = {"rect", "ellipse", "black", "pixelate", "crop"}
-ASPECTS = {"Free": None, "1:1": 1.0, "4:3": 4 / 3, "3:2": 3 / 2, "16:9": 16 / 9, "3:4": 3 / 4,
+# Crop shapes; "Free" is shown through _().
+ASPECTS = {N_("Free"): None, "1:1": 1.0, "4:3": 4 / 3, "3:2": 3 / 2, "16:9": 16 / 9, "3:4": 3 / 4,
            "2:3": 2 / 3, "9:16": 9 / 16}
 MARGIN = 12
 MIN_DRAG = 3  # image pixels; a click smaller than this isn't a shape
@@ -290,7 +294,7 @@ class Canvas(QWidget):
         self.update()
 
     def _add_text(self, pos: QPointF) -> None:
-        text, ok = QInputDialog.getMultiLineText(self, "Add text", "Text:")
+        text, ok = QInputDialog.getMultiLineText(self, _("Add text"), _("Text:"))
         if ok and text.strip():
             self.doc.add(Step("text", points=(pos,), text=text, color=self.color,
                               size=self.text_px))
@@ -344,80 +348,79 @@ class Editor(QMainWindow):
         return action
 
     def _build_toolbars(self) -> None:
-        top = QToolBar("Tools")
+        top = QToolBar(_("Tools"))
         top.setMovable(False)
         top.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(top)
         group = QActionGroup(self)
         self.tool_actions: dict[str, QAction] = {}
         for key, label, icon, hint in TOOLS:
-            if key == "crop" and self.pdf:  # a PDF page keeps its size
-                continue
-            action = QAction(QIcon.fromTheme(icon), label, self)
+            action = QAction(QIcon.fromTheme(icon), _(label), self)
             action.setCheckable(True)
-            action.setToolTip(f"{label} - {hint}")
+            action.setToolTip(f"{_(label)} - {_(hint)}")
             action.triggered.connect(self._tool_slot(key))
             group.addAction(action)
             self.tool_actions[key] = action
             top.addAction(action)
         self.tool_actions["arrow"].setChecked(True)
 
-        bar = QToolBar("Options")
+        bar = QToolBar(_("Options"))
         bar.setMovable(False)
         self.addToolBarBreak()
         self.addToolBar(bar)
         self.color_button = QToolButton()
-        self.color_button.setToolTip("Colour for shapes and text")
+        self.color_button.setToolTip(_("Colour for shapes and text"))
         self.color_button.clicked.connect(self._pick_color)
         self._paint_color_button()
         bar.addWidget(self.color_button)
         self.width_box = QSpinBox()
         self.width_box.setRange(1, 60)
         self.width_box.setValue(self.canvas.width_px)
-        self.width_box.setPrefix("Line ")
+        self.width_box.setPrefix(pgettext("line width", "Line") + " ")
         self.width_box.setSuffix(" px")
         self.width_box.valueChanged.connect(lambda v: setattr(self.canvas, "width_px", v))
         bar.addWidget(self.width_box)
         self.text_box = QSpinBox()
         self.text_box.setRange(8, 400)
         self.text_box.setValue(self.canvas.text_px)
-        self.text_box.setPrefix("Text ")
+        self.text_box.setPrefix(pgettext("text size", "Text") + " ")
         self.text_box.setSuffix(" px")
         self.text_box.valueChanged.connect(lambda v: setattr(self.canvas, "text_px", v))
         bar.addWidget(self.text_box)
         self.aspect_box = QComboBox()
-        self.aspect_box.addItems(list(ASPECTS))
-        self.aspect_box.setToolTip("Crop shape")
-        self.aspect_box.currentTextChanged.connect(self._pick_aspect)
+        for name in ASPECTS:  # shown translated ("Free"), looked up by the name itself
+            self.aspect_box.addItem(_(name), name)
+        self.aspect_box.setToolTip(_("Crop shape"))
+        self.aspect_box.currentIndexChanged.connect(
+            lambda _i: self._pick_aspect(self.aspect_box.currentData()))
         self.aspect_action = bar.addWidget(self.aspect_box)
         bar.addSeparator()
-        self.crop_apply = self._action("Apply crop", "dialog-ok-apply", self.canvas.apply_crop)
+        self.crop_apply = self._action(_("Apply crop"), "dialog-ok-apply", self.canvas.apply_crop)
         bar.addAction(self.crop_apply)
         bar.addSeparator()
-        if self.pdf is None:
-            bar.addAction(self._action("Rotate left", "object-rotate-left",
-                                       lambda: self.canvas.transform("rotate", 270), "Ctrl+["))
-            bar.addAction(self._action("Rotate right", "object-rotate-right",
-                                       lambda: self.canvas.transform("rotate", 90), "Ctrl+]"))
-            bar.addAction(self._action("Flip horizontally", "object-flip-horizontal",
-                                       lambda: self.canvas.transform("flip", 1)))
-            bar.addAction(self._action("Flip vertically", "object-flip-vertical",
-                                       lambda: self.canvas.transform("flip", 2)))
-            bar.addSeparator()
-        self.undo_action = self._action("Undo", "edit-undo", self._undo, "Ctrl+Z")
-        self.redo_action = self._action("Redo", "edit-redo", self._redo, "Ctrl+Shift+Z")
+        bar.addAction(self._action(_("Rotate left"), "object-rotate-left",
+                                   lambda: self.canvas.transform("rotate", 270), "Ctrl+["))
+        bar.addAction(self._action(_("Rotate right"), "object-rotate-right",
+                                   lambda: self.canvas.transform("rotate", 90), "Ctrl+]"))
+        bar.addAction(self._action(_("Flip horizontally"), "object-flip-horizontal",
+                                   lambda: self.canvas.transform("flip", 1)))
+        bar.addAction(self._action(_("Flip vertically"), "object-flip-vertical",
+                                   lambda: self.canvas.transform("flip", 2)))
+        bar.addSeparator()
+        self.undo_action = self._action(_("Undo"), "edit-undo", self._undo, "Ctrl+Z")
+        self.redo_action = self._action(_("Redo"), "edit-redo", self._redo, "Ctrl+Shift+Z")
         bar.addAction(self.undo_action)
         bar.addAction(self.redo_action)
         bar.addSeparator()
-        bar.addAction(self._action("Save copy", "document-save", self.save, "Ctrl+S"))
-        bar.addAction(self._action("Save as…", "document-save-as", self.save_as,
+        bar.addAction(self._action(_("Save copy"), "document-save", self.save, "Ctrl+S"))
+        bar.addAction(self._action(_("Save as…"), "document-save-as", self.save_as,
                                    "Ctrl+Shift+S"))
-        bar.addAction(self._action("Copy", "edit-copy", self.copy, "Ctrl+C"))
+        bar.addAction(self._action(_("Copy"), "edit-copy", self.copy, "Ctrl+C"))
         if self.pdf is not None:
             bar.addSeparator()
-            self.prev_page = self._action("Previous page", "go-previous",
+            self.prev_page = self._action(_("Previous page"), "go-previous",
                                           lambda: self.go_to(self.page_index - 1), "PgUp")
-            self.next_page = self._action("Next page", "go-next",
+            self.next_page = self._action(_("Next page"), "go-next",
                                           lambda: self.go_to(self.page_index + 1), "PgDown")
             self.page_label = QLabel()
             bar.addAction(self.prev_page)
@@ -430,7 +433,7 @@ class Editor(QMainWindow):
         swatch = QPixmap(18, 18)
         swatch.fill(self.canvas.color)
         self.color_button.setIcon(QIcon(swatch))
-        self.color_button.setText("Colour")
+        self.color_button.setText(_("Colour"))
         self.color_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
     def _tool_slot(self, key: Kind) -> Callable[[], None]:
@@ -439,11 +442,11 @@ class Editor(QMainWindow):
     def _pick_tool(self, key: Kind) -> None:
         self.canvas.set_tool(key)
         hint = next(h for k, _l, _i, h in TOOLS if k == key)
-        self.statusBar().showMessage(hint, 6000)
+        self.statusBar().showMessage(_(hint), 6000)
         self._refresh()
 
     def _pick_color(self) -> None:
-        color = QColorDialog.getColor(self.canvas.color, self, "Colour")
+        color = QColorDialog.getColor(self.canvas.color, self, _("Colour"))
         if color.isValid():
             self.canvas.color = color
             self._paint_color_button()
@@ -469,7 +472,7 @@ class Editor(QMainWindow):
         try:
             doc = self.pdf.page(index)
         except ConversionError as exc:
-            QMessageBox.warning(self, "Couldn't show the page", str(exc))
+            QMessageBox.warning(self, _("Couldn't show the page"), str(exc))
             return
         self.pdf.forget(self.page_index)  # unless it was edited
         self.page_index, self.doc, self.canvas.doc = index, doc, doc
@@ -485,11 +488,14 @@ class Editor(QMainWindow):
         image = self.doc.render()
         size = f"{image.width()} x {image.height()}"
         if self.pdf is not None:
-            self.page_label.setText(f" Page {self.page_index + 1} of {self.pdf.count} ")
+            self.page_label.setText(" " + _("Page {n} of {total}").format(
+                n=self.page_index + 1, total=self.pdf.count) + " ")
             self.prev_page.setEnabled(self.page_index > 0)
             self.next_page.setEnabled(self.page_index < self.pdf.count - 1)
             edited = len(self.pdf.edited_pages())
-            size += f" · {edited} page{'s' * (edited != 1)} edited" if edited else ""
+            if edited:
+                size += " · " + ngettext("{n} page edited", "{n} pages edited",
+                                         edited).format(n=edited)
         self.status.setText(size)
         self.setWindowTitle(f"{'* ' if self._modified() else ''}{self.path.name} - Hala")
         self.canvas.update()
@@ -509,24 +515,25 @@ class Editor(QMainWindow):
             out = (save_pdf_copy(self.pdf, dest=dest) if self.pdf
                    else save_copy(self.doc.render(), self.path, dest=dest))
         except ConversionError as exc:
-            QMessageBox.warning(self, "Couldn't save", str(exc))
+            QMessageBox.warning(self, _("Couldn't save"), str(exc))
             return None
         self.saved_as = out
         self._mark_clean()
         self._refresh()
         if dest is not None and out.name != dest.name:
-            QMessageBox.information(self, "Saved under another name",
-                                    f"{dest.name} already exists, so the edit was saved as "
-                                    f"{out.name}. Hala never overwrites files.")
-        note = (" (it opens without a password; the original keeps its own)"
-                if self.pdf is not None and self.pdf.unlocked else "")
-        self.statusBar().showMessage(f"Saved {out}{note}", 8000)
+            QMessageBox.information(self, _("Saved under another name"),
+                                    _("{name} already exists, so the edit was saved as {saved}. "
+                                      "Hala never overwrites files.").format(name=dest.name,
+                                                                             saved=out.name))
+        message = (_("Saved {path} (it opens without a password; the original keeps its own)")
+                   if self.pdf is not None and self.pdf.unlocked else _("Saved {path}"))
+        self.statusBar().showMessage(message.format(path=out), 8000)
         return out
 
     def save(self) -> bool:
         """Save a copy beside the original. True when there's nothing left unsaved."""
         if not self._modified():
-            self.statusBar().showMessage("Nothing new to save", 4000)
+            self.statusBar().showMessage(_("Nothing new to save"), 4000)
             return True
         if not self._edited():  # undone back to the original after an earlier save
             self._mark_clean()
@@ -538,9 +545,9 @@ class Editor(QMainWindow):
         exts = ("pdf",) if self.pdf else save_exts()
         filters = [f"{e.upper()} (*.{e}{' *.jpeg' if e == 'jpg' else ''})" for e in exts]
         own = "pdf" if self.pdf else output_ext(self.path)
-        suggested = self.path.with_name(f"{f.stem_of(self.path)} (edited).{own}")
+        suggested = self.path.with_name(f"{edited_name(self.path)}.{own}")
         name, chosen = QFileDialog.getSaveFileName(
-            self, "Save as", str(suggested), ";;".join(filters), filters[exts.index(own)],
+            self, _("Save as"), str(suggested), ";;".join(filters), filters[exts.index(own)],
             QFileDialog.Option.DontConfirmOverwrite)  # we never overwrite; see _write
         if not name:
             return False
@@ -552,7 +559,7 @@ class Editor(QMainWindow):
 
     def copy(self) -> None:
         QApplication.clipboard().setImage(self.doc.render())
-        self.statusBar().showMessage("Copied to the clipboard", 4000)
+        self.statusBar().showMessage(_("Copied to the clipboard"), 4000)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._close(event)
@@ -564,9 +571,10 @@ class Editor(QMainWindow):
             event.accept()
             return
         own = "pdf" if self.pdf else output_ext(self.path)
-        target = f"{f.stem_of(self.path)} (edited).{own}"
+        target = f"{edited_name(self.path)}.{own}"
         answer = QMessageBox.question(
-            self, "Unsaved edits", f"Save your edits as {target} before closing?",
+            self, _("Unsaved edits"),
+            _("Save your edits as {name} before closing?").format(name=target),
             QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard
             | QMessageBox.StandardButton.Cancel)
         if answer == QMessageBox.StandardButton.Discard:
@@ -578,7 +586,7 @@ class Editor(QMainWindow):
             try:
                 saved = self.save()
             except Exception as exc:  # shown, and the window stays open: edits never lost
-                QMessageBox.critical(self, "Couldn't save", str(exc))
+                QMessageBox.critical(self, _("Couldn't save"), str(exc))
         if saved:
             event.accept()
         else:
@@ -607,8 +615,9 @@ def _excepthook(kind: type[BaseException], exc: BaseException, tb: TracebackType
         return  # a failing paintEvent would otherwise stack dialogs forever
     _excepthook.showing = True  # type: ignore[attr-defined]
     try:
-        QMessageBox.critical(None, "Hala", f"Something went wrong: {exc}\n\nYour edits are "
-                             f"still open; try Save as. Details: {LOG}")
+        QMessageBox.critical(None, "Hala", _("Something went wrong: {error}\n\nYour edits are "
+                                             "still open; try Save as. Details: {log}").format(
+            error=exc, log=LOG))
     finally:
         _excepthook.showing = False  # type: ignore[attr-defined]
 
@@ -620,27 +629,30 @@ def _open(path: Path) -> Editor | None:
         return Editor(path)
     except PasswordNeeded:
         pass
-    prompt = f"{path.name} is password-protected.\n\nPassword:"
+    prompt = _("{name} is password-protected.\n\nPassword:").format(name=path.name)
     while True:
-        password, ok = QInputDialog.getText(None, "Password", prompt,
+        password, ok = QInputDialog.getText(None, _("Password"), prompt,
                                             QLineEdit.EchoMode.Password)
         if not ok:
             return None
         try:
             return Editor(path, password)
         except WrongPassword:
-            prompt = f"That password doesn't open {path.name}. Try again:"
+            prompt = _("That password doesn't open {name}. Try again:").format(name=path.name)
 
 
 def main(files: list[Path]) -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])
+    assert isinstance(app, QApplication)
+    translate.install(app)
     app.setApplicationName("hala")
     sys.excepthook = _excepthook
     windows: list[Editor] = []
     problems: list[str] = []
     for path in files:
         if f.ext_of(path) not in (*f.IMAGE_IN, "pdf"):
-            problems.append(f"{path.name}: not a picture or PDF Hala can edit")
+            problems.append(_("{name}: not a picture or PDF Hala can edit").format(
+                name=path.name))
             continue
         try:
             window = _open(path)

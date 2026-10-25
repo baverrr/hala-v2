@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .. import formats as f
 from ..engines import media
+from ..i18n import N_, _
 from ..runner import Context, ConversionError
 from . import Param, Params, Tool, format_time
 
@@ -39,7 +40,7 @@ def _audio_out(ext: str) -> tuple[str, list[str]]:
 
 def _require_audio(info: dict) -> None:
     if not any(s.get("codec_type") == "audio" for s in info.get("streams", [])):
-        raise ConversionError("there's no sound in this file")
+        raise ConversionError(_("there's no sound in this file"))
 
 
 # --- normalize ------------------------------------------------------------------------------
@@ -57,10 +58,10 @@ def normalize(ctx: Context, inputs: list[Path], params: Params) -> Path:
         "-i", src, "-map", "0:a:0", "-af", f"{base}:print_format=json", "-f", "null", "-"))
     blocks = re.findall(r"\{[^{}]*\"input_i\"[^{}]*\}", err)
     if not blocks:
-        raise ConversionError("couldn't measure the loudness")
+        raise ConversionError(_("couldn't measure the loudness"))
     m = json.loads(blocks[-1])
     if m["input_i"] in ("-inf", "inf"):
-        raise ConversionError("this recording is silent")
+        raise ConversionError(_("this recording is silent"))
     rate = next((s.get("sample_rate") for s in info["streams"]
                  if s.get("codec_type") == "audio"), "48000")
     chain = (f"{base}:measured_I={m['input_i']}:measured_TP={m['input_tp']}"
@@ -97,10 +98,10 @@ def trim(ctx: Context, inputs: list[Path], params: Params) -> Path:
     if duration and end > duration:
         end = duration
     if start >= end:
-        raise ConversionError(f"the start ({format_time(start)}) has to be before the end "
-                              f"({format_time(end)})")
+        raise ConversionError(_("the start ({start}) has to be before the end ({end})")
+                              .format(start=format_time(start), end=format_time(end)))
     if not params["start"] and not params["end"] and not params.get("silence"):
-        raise ConversionError("nothing to trim: set a start, an end or remove silence")
+        raise ConversionError(_("nothing to trim: set a start, an end or remove silence"))
     ext = f.ext_of(src)
     span = ["-ss", f"{start:.3f}", "-t", f"{end - start:.3f}"]
     if ext in AUDIO:
@@ -136,10 +137,11 @@ def split(ctx: Context, inputs: list[Path], params: Params) -> Path:
     src = inputs[0]
     duration = media._duration(media.probe(ctx, src))
     if duration <= 0:
-        raise ConversionError("can't tell how long this file is")
+        raise ConversionError(_("can't tell how long this file is"))
     every = params["every"] or duration / max(2, params["parts"])
     if every >= duration:
-        raise ConversionError(f"the file is only {format_time(duration)} long")
+        raise ConversionError(_("the file is only {length} long")
+                              .format(length=format_time(duration)))
     folder = ctx.workdir / "split"
     folder.mkdir()
     ext = f.split_name(src.name)[1].lower()
@@ -161,7 +163,7 @@ def split(ctx: Context, inputs: list[Path], params: Params) -> Path:
     stem = f.stem_of(src)
     pieces = sorted(folder.iterdir())
     for i, piece in enumerate(pieces, start=1):
-        piece.rename(folder / f"{stem} part {i}{ext}")
+        piece.rename(folder / (_("{name} part {n}").format(name=stem, n=i) + ext))
     return folder
 
 
@@ -182,7 +184,7 @@ def _signature(info: dict) -> tuple:
 def join(ctx: Context, inputs: list[Path], params: Params) -> Path:
     kinds = {f.ext_of(p) in VIDEO for p in inputs}
     if len(kinds) > 1:
-        raise ConversionError("join either videos or audio files, not both at once")
+        raise ConversionError(_("join either videos or audio files, not both at once"))
     is_video = kinds.pop()
     infos = [media.probe(ctx, p) for p in inputs]
     total = sum(media._duration(i) for i in infos)
@@ -195,7 +197,7 @@ def join(ctx: Context, inputs: list[Path], params: Params) -> Path:
 def _join_copy(ctx: Context, inputs: list[Path], total: float) -> Path:
     if any("\n" in str(p) or "\r" in str(p) for p in inputs):
         # A line break would end the entry and start a new directive in the list file.
-        raise ConversionError("can't join files with a line break in their name")
+        raise ConversionError(_("can't join files with a line break in their name"))
     listing = ctx.workdir / "list.txt"
     # concat demuxer syntax: single-quoted paths, with ' written as '\''.
     listing.write_text("".join("file '" + str(p).replace("'", "'\\''") + "'\n" for p in inputs))
@@ -242,41 +244,43 @@ def _join_encode(ctx: Context, inputs: list[Path], infos: list[dict], total: flo
 
 
 NORMALIZE = Tool(
-    "normalize", "Normalize audio", short="Normalize", done="Loudness evened out",
+    "normalize", N_("Normalize audio"), short=N_("Normalize"), done=N_("Loudness evened out"),
     sources=MEDIA, engine=normalize,
-    suffix=lambda p: "normalized", icon="audio-volume-high",
-    params=(Param("loudness", "Loudness", "float", -16.0,
-                  "target in LUFS: -14 streaming, -16 podcasts, -23 broadcast", unit="LUFS"),),
-    help="even out the volume to a standard loudness",
+    suffix=lambda p: _("normalized"), icon="audio-volume-high",
+    params=(Param("loudness", N_("Loudness"), "float", -16.0,
+                  N_("target in LUFS: -14 streaming, -16 podcasts, -23 broadcast"),
+                  unit="LUFS"),),
+    help=N_("even out the volume to a standard loudness"),
 )
 TRIM = Tool(
-    "trim", "Trim", done="Trimmed",
-    sources=MEDIA, engine=trim, suffix=lambda p: "trimmed", icon="edit-cut",
+    "trim", N_("Trim"), done=N_("Trimmed"),
+    sources=MEDIA, engine=trim, suffix=lambda p: _("trimmed"), icon="edit-cut",
     params=(
-        Param("start", "Start", "time", 0.0, "where to start, e.g. 0:05 or 1:02:03.5"),
-        Param("end", "End", "time", None, "where to end (blank: the end of the file)"),
-        Param("precise", "Frame-accurate", "bool", True,
-              "re-encode for an exact cut (off: instant, but cuts at a keyframe)",
+        Param("start", N_("Start"), "time", 0.0, N_("where to start, e.g. 0:05 or 1:02:03.5")),
+        Param("end", N_("End"), "time", None, N_("where to end (blank: the end of the file)")),
+        Param("precise", N_("Frame-accurate"), "bool", True,
+              N_("re-encode for an exact cut (off: instant, but cuts at a keyframe)"),
               only_for=VIDEO),
-        Param("silence", "Remove silence", "bool", False,
-              "also cut silence at the start and end", only_for=AUDIO),
+        Param("silence", N_("Remove silence"), "bool", False,
+              N_("also cut silence at the start and end"), only_for=AUDIO),
     ),
-    help="keep only part of a recording or video",
+    help=N_("keep only part of a recording or video"),
 )
 SPLIT = Tool(
-    "split", "Split", done="Split",
-    sources=MEDIA, engine=split, suffix=lambda p: "split", icon="split",
+    "split", N_("Split"), done=N_("Split into parts"),
+    sources=MEDIA, engine=split, suffix=lambda p: _("split"), icon="split",
     params=(
-        Param("parts", "Parts", "int", 2, "how many equal parts"),
-        Param("every", "Or every", "time", None, "pieces this long instead, e.g. 10:00"),
-        Param("precise", "Frame-accurate", "bool", True,
-              "re-encode for exact cuts (off: instant, but cuts at keyframes)", only_for=VIDEO),
+        Param("parts", N_("Parts"), "int", 2, N_("how many equal parts")),
+        Param("every", N_("Or every"), "time", None, N_("pieces this long instead, e.g. 10:00")),
+        Param("precise", N_("Frame-accurate"), "bool", True,
+              N_("re-encode for exact cuts (off: instant, but cuts at keyframes)"),
+              only_for=VIDEO),
     ),
-    help="cut into equal parts or fixed-length pieces",
+    help=N_("cut into equal parts or fixed-length pieces"),
 )
 JOIN = Tool(
-    "join", "Join", done="Joined",
+    "join", N_("Join"), done=N_("Joined"),
     sources=MEDIA, engine=join, combine=True, min_files=2,
-    suffix=lambda p: "joined", icon="merge",
-    help="one video (or recording) from several, in the order given",
+    suffix=lambda p: _("joined"), icon="merge",
+    help=N_("one video (or recording) from several, in the order given"),
 )

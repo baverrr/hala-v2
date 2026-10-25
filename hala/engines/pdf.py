@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .. import limits
+from ..i18n import _
 from ..runner import Context, ConversionError
 
 # qpdf --requires-password exit codes, and UNKNOWN when qpdf couldn't be asked
@@ -60,7 +61,8 @@ def known_encryption(path: Path) -> int:
     answer (unlocking, opening for editing)."""
     state, why = _check(path)
     if state == UNKNOWN:
-        raise ConversionError(f"couldn't check whether {path.name} is password-protected: {why}")
+        raise ConversionError(_("couldn't check whether {name} is password-protected: {reason}")
+                              .format(name=path.name, reason=why))
     return state
 
 
@@ -68,8 +70,8 @@ def require_unlocked(path: Path) -> None:
     """A clear error for a PDF that needs a password, before poppler or Ghostscript give a
     cryptic one. When qpdf can't tell, the reading tool's own error has to do."""
     if encryption(path) == NEEDS_PASSWORD:
-        raise PasswordNeeded(f"{path.name} is password-protected: unlock it first (Hala tools "
-                             "→ Unlock PDF, or hala tool unlock)")
+        raise PasswordNeeded(_("{name} is password-protected: unlock it first (Hala tools → "
+                               "Unlock PDF, or hala tool unlock)").format(name=path.name))
 
 
 def unlock_command(src: Path, out: Path) -> list[str]:
@@ -88,10 +90,10 @@ def poppler(cmd: list[str], failure: str) -> str:
         return subprocess.run(cmd, check=True, capture_output=True, text=True,
                               timeout=POPPLER_TIMEOUT_S).stdout
     except FileNotFoundError:
-        raise ConversionError(f"{failure}: poppler isn't installed "
-                              "(apt install poppler-utils)") from None
+        raise ConversionError(failure + ": " + _("poppler isn't installed (apt install "
+                                                 "poppler-utils)")) from None
     except subprocess.TimeoutExpired:
-        raise ConversionError(f"{failure}: it took too long") from None
+        raise ConversionError(failure + ": " + _("it took too long")) from None
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or "").strip().splitlines()
         raise ConversionError(failure + (f" ({detail[-1]})" if detail else "")) from None
@@ -101,14 +103,15 @@ def page_sizes(path: Path, name: str | None = None) -> list[tuple[float, float]]
     """Each page's size in points as it's displayed: a page rotated by 90 or 270 degrees has
     its width and height swapped, like the picture pdftoppm renders of it."""
     name = name or path.name
-    failure = f"can't open {name} as a PDF"
+    failure = _("can't open {name} as a PDF").format(name=name)
     info = poppler(["pdfinfo", str(path)], failure)
     count = next((int(fs[1]) for line in info.splitlines() if (fs := line.split())[:1]
                   == ["Pages:"] and len(fs) > 1 and fs[1].isdigit()), 0)
     if count < 1:
-        raise ConversionError(f"{name} has no pages")
+        raise ConversionError(_("{name} has no pages").format(name=name))
     if count > MAX_RENDER_PAGES * 20:
-        raise ConversionError(f"{name} has {count:,} pages; that's more than Hala handles")
+        raise ConversionError(_("{name} has {n:,} pages; that's more than Hala handles").format(
+            name=name, n=count))
     info = poppler(["pdfinfo", "-f", "1", "-l", str(count), str(path)], failure)
     sizes: dict[int, tuple[float, float]] = {}
     turned: set[int] = set()
@@ -119,7 +122,7 @@ def page_sizes(path: Path, name: str | None = None) -> list[tuple[float, float]]
         elif m and m["what"] == "rot" and int(float(m["w"])) % 180 == 90:
             turned.add(int(m["page"]))
     if len(sizes) != count:
-        raise ConversionError(f"{failure} (couldn't read its page sizes)")
+        raise ConversionError(failure + " " + _("(couldn't read its page sizes)"))
     return [(h, w) if n in turned else (w, h) for n, (w, h) in sorted(sizes.items())]
 
 
@@ -133,24 +136,27 @@ def check_render(src: Path, dpi: int, ext: str, outdir: Path) -> None:
     wouldn't fit on the disk as pictures."""
     sizes = page_sizes(src)
     if len(sizes) > MAX_RENDER_PAGES:
-        raise ConversionError(f"{src.name} has {len(sizes):,} pages; making a picture of each "
-                              f"is limited to {MAX_RENDER_PAGES:,}")
+        raise ConversionError(_("{name} has {n:,} pages; making a picture of each is limited "
+                                "to {limit:,}").format(name=src.name, n=len(sizes),
+                                                       limit=MAX_RENDER_PAGES))
     total = 0
     for i, size in enumerate(sizes):
         width, height = page_pixels(size, dpi)
         limits.check_pixels(width, height, f"page {i + 1} of {src.name}")
         total += width * height
     if total > MAX_RENDER_PIXELS:
-        raise ConversionError(f"{src.name}'s pages would make {total / 1e9:,.0f} gigapixels of "
-                              f"pictures; the limit is {MAX_RENDER_PIXELS / 1e9:,.0f}")
+        raise ConversionError(_("{name}'s pages would make {total:,.0f} gigapixels of "
+                                "pictures; the limit is {limit:,.0f}").format(
+            name=src.name, total=total / 1e9, limit=MAX_RENDER_PIXELS / 1e9))
     need = int(total * RENDER_BYTES_PER_PIXEL.get(ext, 0.5)) + limits.MIN_FREE
     try:
         free = limits.free_space(outdir)
     except OSError:
         return
     if need > free:
-        raise ConversionError(f"the pictures of {src.name}'s {len(sizes):,} pages would need "
-                              f"about {limits.human(need)}, but only {limits.human(free)} is free")
+        raise ConversionError(_("the pictures of {name}'s {n:,} pages would need about "
+                                "{need}, but only {free} is free").format(
+            name=src.name, n=len(sizes), need=limits.human(need), free=limits.human(free)))
 
 
 RENDER_DPI = 150
@@ -166,7 +172,7 @@ def to_images(ctx: Context, src: Path, dst_ext: str) -> Path:
     ctx.run(["pdftoppm", *fmt, "-r", str(RENDER_DPI), src, pages / "page"])
     produced = sorted(pages.iterdir())
     if not produced:
-        raise ConversionError("this PDF has no pages to render")
+        raise ConversionError(_("this PDF has no pages to render"))
     return produced[0] if len(produced) == 1 else pages
 
 

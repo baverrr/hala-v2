@@ -6,6 +6,9 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog
 
+from ..i18n import _
+from . import translate
+
 LAST_FOLDER = Path.home() / ".cache" / "hala" / "last-folder"
 
 
@@ -13,6 +16,7 @@ def _app() -> QApplication:
     app = QApplication.instance() or QApplication([])
     QApplication.setDesktopFileName("hala")
     assert isinstance(app, QApplication)
+    translate.install(app)
     return app
 
 
@@ -44,7 +48,8 @@ def pick_device(devices: list[tuple[str, str]]) -> str | None:
     """The id of the phone chosen from (id, name) pairs, or None."""
     _app()
     names = [name for _device_id, name in devices]
-    name, ok = QInputDialog.getItem(None, "Send to phone - Hala", "Send to:", names, 0, False)
+    name, ok = QInputDialog.getItem(None, _("Send to phone") + " - Hala", _("Send to:"), names,
+                                    0, False)
     if not ok:
         return None
     return next(device_id for device_id, n in devices if n == name)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .. import formats as f
 from ..engines import images, pdf
+from ..i18n import N_, _
 from ..runner import Context, ConversionError
 from . import Params, Tool
 
@@ -34,15 +35,15 @@ def read(ctx: Context, inputs: list[Path], params: Params) -> Path:
                                    ok_codes=(0, NOTHING_FOUND))
     codes = [line for line in out.splitlines() if line.strip()]
     if code == NOTHING_FOUND or not codes:
-        raise ConversionError("no QR code or barcode found")
+        raise ConversionError(_("no QR code or barcode found"))
     result = ctx.workdir / "codes.txt"
     result.write_text("\n".join(codes) + "\n")
     return result
 
 
 TOOL = Tool(
-    "read-qr", "Read QR", done="QR code read",
+    "read-qr", N_("Read QR"), done=N_("QR code read"),
     sources=frozenset({*f.IMAGE_IN - {"svg"}, "pdf"}), engine=read,
-    suffix=lambda p: "codes", icon="view-barcode-qr", shows_text=True,
-    help="decode QR codes and barcodes into a text file (also shown in the notification)",
+    suffix=lambda p: _("codes"), icon="view-barcode-qr", shows_text=True,
+    help=N_("decode QR codes and barcodes into a text file (also shown in the notification)"),
 )

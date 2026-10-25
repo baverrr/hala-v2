@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .. import limits
 from ..formats import ANIMATED, ext_of
+from ..i18n import _
 from ..runner import Context, ConversionError
 
 SAVE_OPTIONS = {
@@ -34,11 +35,13 @@ def check_picture(path: Path) -> None:
         with open(path, "rb") as fh:
             head = fh.read(SVG_SNIFF)
     except OSError as exc:
-        raise ConversionError(f"can't read {path.name}: {exc.strerror}") from None
+        raise ConversionError(_("can't read {name}: {reason}").format(name=path.name,
+                                                                       reason=exc.strerror)
+                              ) from None
     if _raster_signature(head) or _looks_like_svg(head):
         return
-    raise ConversionError(f"{path.name} isn't a picture Hala can read (its contents don't "
-                          "match any image format)")
+    raise ConversionError(_("{name} isn't a picture Hala can read (its contents don't match "
+                            "any image format)").format(name=path.name))
 
 
 def _raster_signature(head: bytes) -> bool:

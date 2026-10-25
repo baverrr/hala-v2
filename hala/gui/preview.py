@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..limits import human
+
 
 def total_size(paths: list[Path]) -> int | None:
     """Bytes in all the files, or None when a folder is involved (not worth walking)."""
@@ -20,9 +22,4 @@ def total_size(paths: list[Path]) -> int | None:
 
 def human_size(n: int) -> str:
     """Decimal units, one decimal place, as file managers show them: "2.2 MB"."""
-    value = float(n)
-    for unit in ("bytes", "KB", "MB", "GB"):
-        if value < 1000 or unit == "GB":
-            return f"{n} bytes" if unit == "bytes" else f"{value:.1f} {unit}"
-        value /= 1000
-    raise AssertionError("unreachable")
+    return human(n)

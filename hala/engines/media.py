@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 from ..formats import AUDIO_OUT
+from ..i18n import _
 from ..runner import Cancelled, Context, ConversionError
 
 log = logging.getLogger("hala")
@@ -62,7 +63,7 @@ def _ffmpeg(ctx: Context, args: list[str | Path], duration: float) -> None:
     """Run ffmpeg, reporting progress from its -progress stream."""
 
     def on_line(line: str) -> None:
-        key, _, value = line.partition("=")
+        key, _sep, value = line.partition("=")
         if key == "out_time_us" and duration > 0 and value.isdigit():
             ctx.progress(int(value) / 1e6 / duration)
 
@@ -90,7 +91,7 @@ def convert_video(ctx: Context, src: Path, dst_ext: str) -> Path:
     out = ctx.workdir / f"out.{dst_ext}"
     if dst_ext in AUDIO_OUT:
         if not any(s.get("codec_type") == "audio" for s in info.get("streams", [])):
-            raise ConversionError("this video has no audio track")
+            raise ConversionError(_("this video has no audio track"))
         _ffmpeg(ctx, ["-i", src, "-vn", "-map", "0:a:0", "-map_metadata", "0",
                       *AUDIO_CODECS[dst_ext], out], duration)
         return out

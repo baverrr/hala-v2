@@ -42,6 +42,7 @@ from hala.servicemenus import (  # noqa: E402
     SHORTCUT_ENTRY,
     SHORTCUT_FILE,
     build_menus,
+    localize,
 )
 
 EXE = "/usr/bin/hala"
@@ -88,7 +89,7 @@ def stage(root: Path, version: str = __version__) -> None:
 
     apps = root / "usr/share/applications"
     apps.mkdir(parents=True)
-    (apps / "hala.desktop").write_text(APP_ENTRY.format(exe=EXE))
+    (apps / "hala.desktop").write_text(localize(APP_ENTRY.format(exe=EXE)))
     (apps / "hala-link.desktop").write_text(LINK_ENTRY.format(exe=EXE))
     icons = root / "usr/share/icons/hicolor/scalable/apps"
     icons.mkdir(parents=True)
@@ -96,7 +97,7 @@ def stage(root: Path, version: str = __version__) -> None:
     shortcuts = root / "usr/share/kglobalaccel"
     shortcuts.mkdir(parents=True)
     (shortcuts / SHORTCUT_FILE).write_text(
-        SHORTCUT_ENTRY.format(exe=EXE, shortcut=DEFAULT_SHORTCUT))
+        localize(SHORTCUT_ENTRY.format(exe=EXE, shortcut=DEFAULT_SHORTCUT)))
     menus = root / "usr/share/kio/servicemenus"
     menus.mkdir(parents=True)
     for name, text in build_menus(EXE).items():

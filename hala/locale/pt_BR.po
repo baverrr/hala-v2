@@ -1,0 +1,2123 @@
+# Portuguese (Brazil) translation of Hala.
+# First draft, machine-written: please have a native speaker review it.
+msgid ""
+msgstr ""
+"Project-Id-Version: Hala 0.4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/baverrr/hala-v2/issues\n"
+"PO-Revision-Date: 2026-10-23 00:00+0000\n"
+"Last-Translator: Claude <noreply@anthropic.com>\n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: hala/actions.py:53
+msgid "Shelf"
+msgstr "Prateleira"
+
+#: hala/actions.py:54
+msgid "Phone"
+msgstr "Celular"
+
+#: hala/actions.py:55
+msgid "Copy to"
+msgstr "Copiar para"
+
+#: hala/actions.py:56
+msgid "Move to"
+msgstr "Mover para"
+
+#: hala/actions.py:57
+msgid "Zip all"
+msgstr "Zipar tudo"
+
+#: hala/actions.py:76
+#, python-brace-format
+msgid "(and {n} more)"
+msgstr "(e mais {n})"
+
+#: hala/actions.py:85 hala/actions.py:108
+#, python-brace-format
+msgid "{name} no longer exists"
+msgstr "{name} não existe mais"
+
+#: hala/actions.py:101
+#, python-brace-format
+msgid "couldn't copy {name}: {reason}"
+msgstr "não foi possível copiar {name}: {reason}"
+
+#: hala/actions.py:117
+#, python-brace-format
+msgid "can't move into {folder}: {reason}"
+msgstr "não é possível mover para {folder}: {reason}"
+
+#: hala/actions.py:124
+#, python-brace-format
+msgid "couldn't move {name}: {reason}"
+msgstr "não foi possível mover {name}: {reason}"
+
+#: hala/actions.py:133
+#, python-brace-format
+msgid ""
+"copied to {folder}, but the original couldn't be removed ({reason}) - it may "
+"be partly deleted"
+msgstr ""
+"copiado para {folder}, mas não foi possível remover o original ({reason}); "
+"ele pode estar apagado em parte"
+
+#: hala/actions.py:135
+#, python-brace-format
+msgid "copied to {folder}, but the original couldn't be removed ({reason})"
+msgstr ""
+"copiado para {folder}, mas não foi possível remover o original ({reason})"
+
+#: hala/actions.py:145 hala/convert.py:140
+#, python-brace-format
+msgid "too many existing copies of {name} in {folder}"
+msgstr "há cópias demais de {name} em {folder}"
+
+#: hala/actions.py:187
+#, python-brace-format
+msgid ""
+"linked into {folder}, but couldn't remove the original from {source} "
+"({reason})"
+msgstr ""
+"vinculado em {folder}, mas não foi possível remover o original de {source} "
+"({reason})"
+
+#: hala/actions.py:196
+#, python-brace-format
+msgid "can't put {name} inside itself"
+msgstr "não é possível colocar {name} dentro de si mesmo"
+
+#: hala/actions.py:204
+msgid "KDE Connect isn't installed (apt install kdeconnect)"
+msgstr "O KDE Connect não está instalado (apt install kdeconnect)"
+
+#: hala/actions.py:209
+#, python-brace-format
+msgid "KDE Connect didn't respond in {seconds:.0f} s (is kdeconnectd running?)"
+msgstr ""
+"O KDE Connect não respondeu em {seconds:.0f} s (o kdeconnectd está rodando?)"
+
+#: hala/actions.py:214 hala/runner.py:148
+#, python-brace-format
+msgid "exit code {code}"
+msgstr "código de saída {code}"
+
+#: hala/actions.py:216
+#, python-brace-format
+msgid "couldn't run {program}: {reason}"
+msgstr "não foi possível executar {program}: {reason}"
+
+#: hala/actions.py:246
+msgid "only files and folders can be sent"
+msgstr "só é possível enviar arquivos e pastas"
+
+#: hala/actions.py:259
+#, python-brace-format
+msgid "can't make {folder}: {reason}"
+msgstr "não é possível criar {folder}: {reason}"
+
+#: hala/cli.py:24 hala/cli.py:25
+msgid "images"
+msgstr "imagens"
+
+#: hala/cli.py:24
+msgid "video and audio"
+msgstr "vídeo e áudio"
+
+#: hala/cli.py:25
+msgid "office documents"
+msgstr "documentos de escritório"
+
+#: hala/cli.py:26
+msgid "PDF to images"
+msgstr "PDF para imagens"
+
+#: hala/cli.py:26
+msgid "markup and e-books"
+msgstr "marcação e e-books"
+
+#: hala/cli.py:27
+msgid "PDF merge and split"
+msgstr "juntar e dividir PDF"
+
+#: hala/cli.py:27
+msgid "PDF to text"
+msgstr "PDF para texto"
+
+#: hala/cli.py:27
+msgid "archives"
+msgstr "arquivos compactados"
+
+#: hala/cli.py:28
+msgid "PDF compression"
+msgstr "compressão de PDF"
+
+#: hala/cli.py:28
+msgid "QR codes"
+msgstr "códigos QR"
+
+#: hala/cli.py:28
+msgid "metadata"
+msgstr "metadados"
+
+#: hala/cli.py:29
+msgid "low-priority jobs"
+msgstr "tarefas de baixa prioridade"
+
+#: hala/cli.py:41
+msgid "no common conversions for these files"
+msgstr "não há conversões em comum para estes arquivos"
+
+#: hala/cli.py:53
+msgid "any file"
+msgstr "qualquer arquivo"
+
+#: hala/cli.py:63
+msgid "(MISSING)"
+msgstr "(FALTANDO)"
+
+#: hala/cli.py:75
+#, python-brace-format
+msgid "fix {path} first, or start again with `hala limits reset`"
+msgstr "corrija {path} primeiro ou recomece com `hala limits reset`"
+
+#: hala/cli.py:93
+#, python-brace-format
+msgid "can't save {path}: {error}"
+msgstr "não foi possível salvar {path}: {error}"
+
+#: hala/cli.py:103
+msgid "(default {n:,})"
+msgstr "(padrão {n:,})"
+
+#: hala/cli.py:106
+#, python-brace-format
+msgid "no {path}: all defaults"
+msgstr "sem {path}: tudo no padrão"
+
+#: hala/cli.py:108
+#, python-brace-format
+msgid "warning: {problem}"
+msgstr "aviso: {problem}"
+
+#: hala/cli.py:123
+msgid "(combines several files)"
+msgstr "(combina vários arquivos)"
+
+#: hala/cli.py:185
+#, python-brace-format
+msgid "note: {note}"
+msgstr "observação: {note}"
+
+#: hala/cli.py:220
+msgid "must be at least 1"
+msgstr "precisa ser pelo menos 1"
+
+#: hala/cli.py:230
+#, python-brace-format
+msgid "autostart enabled: {path}"
+msgstr "início automático ativado: {path}"
+
+#: hala/cli.py:231
+#, python-brace-format
+msgid "autostart disabled: {path}"
+msgstr "início automático desativado: {path}"
+
+#: hala/cli.py:255
+msgid ""
+"Drag files to the thin strip at the screen edge, or right-click Hala's tray "
+"icon for the shelf."
+msgstr ""
+"Arraste arquivos para a faixa fina na borda da tela, ou clique com o botão "
+"direito no ícone do Hala na bandeja para abrir a prateleira."
+
+#: hala/cli.py:255
+msgid "Hala is running"
+msgstr "O Hala está rodando"
+
+#: hala/cli.py:291
+#, python-brace-format
+msgid "removed {n} Dolphin menu file"
+msgid_plural "removed {n} Dolphin menu files"
+msgstr[0] "{n} arquivo de menu do Dolphin removido"
+msgstr[1] "{n} arquivos de menu do Dolphin removidos"
+
+#: hala/cli.py:295
+#, python-brace-format
+msgid "installed {n} Dolphin menu file in {folder}"
+msgid_plural "installed {n} Dolphin menu files in {folder}"
+msgstr[0] "{n} arquivo de menu do Dolphin instalado em {folder}"
+msgstr[1] "{n} arquivos de menu do Dolphin instalados em {folder}"
+
+#: hala/cli.py:302
+msgid "Convert files locally."
+msgstr "Converta arquivos no seu computador."
+
+#: hala/cli.py:306
+msgid "convert files; results go next to the originals"
+msgstr "converter arquivos; os resultados ficam ao lado dos originais"
+
+#: hala/cli.py:309
+msgid "target format, e.g. jpg, mp3, pdf, folder"
+msgstr "formato de destino, ex.: jpg, mp3, pdf, folder"
+
+#: hala/cli.py:310 hala/cli.py:426
+msgid "put results here instead of next to the originals"
+msgstr "colocar os resultados aqui em vez de ao lado dos originais"
+
+#: hala/cli.py:312
+#, python-brace-format
+msgid "conversions at once (default {n})"
+msgstr "conversões ao mesmo tempo (padrão {n})"
+
+#: hala/cli.py:313
+msgid "one JSON line per finished file"
+msgstr "uma linha JSON por arquivo concluído"
+
+#: hala/cli.py:316
+msgid "list what these files can be converted to"
+msgstr "listar para o que estes arquivos podem ser convertidos"
+
+#: hala/cli.py:321
+msgid "convert with Plasma progress + notifications (for menus)"
+msgstr "converter com progresso e notificações do Plasma (para os menus)"
+
+#: hala/cli.py:325
+msgid "without it (or --tool), say what the files can become"
+msgstr "sem isto (nem --tool), dizer no que os arquivos podem se tornar"
+
+#: hala/cli.py:326
+msgid "run a tool instead (asks for its settings first)"
+msgstr "executar uma ferramenta em vez disso (pede as configurações antes)"
+
+#: hala/cli.py:328
+msgid "show the tool's settings dialog (default: yes)"
+msgstr "mostrar a janela de configurações da ferramenta (padrão: sim)"
+
+#: hala/cli.py:332
+msgid "drag files to a screen edge to pick a format"
+msgstr "arrastar arquivos para uma borda da tela para escolher um formato"
+
+#: hala/cli.py:335
+msgid "start the drop zone at login (or stop doing so), then exit"
+msgstr "iniciar a área de soltar no login (ou deixar de fazer isso) e sair"
+
+#: hala/cli.py:338
+msgid "what the app menu starts: the drop zone (files: what they can become)"
+msgstr ""
+"o que o menu de aplicativos abre: a área de soltar (com arquivos: no que "
+"eles podem se tornar)"
+
+#: hala/cli.py:343
+msgid ""
+"the format wheel for FILES (or --clipboard), without dragging to the screen "
+"edge"
+msgstr ""
+"a roda de formatos para FILES (ou --clipboard), sem arrastar até a borda da "
+"tela"
+
+#: hala/cli.py:347
+msgid ""
+"use the files last copied (Ctrl+C) instead; the global shortcut does this"
+msgstr ""
+"usar os últimos arquivos copiados (Ctrl+C); é o que o atalho global faz"
+
+#: hala/cli.py:352
+msgid "crop, annotate or redact pictures or PDFs (saves a copy)"
+msgstr "recortar, anotar ou tarjar imagens ou PDFs (salva uma cópia)"
+
+#: hala/cli.py:356
+msgid "zip, copy/move to a folder, send to a phone, shelve"
+msgstr ""
+"zipar, copiar/mover para uma pasta, enviar para um celular, pôr na prateleira"
+
+#: hala/cli.py:358
+msgid "(only shelf may be given none: it just opens)"
+msgstr "(só shelf aceita nenhum: ela simplesmente abre)"
+
+#: hala/cli.py:359
+msgid "copy/move: the folder (asks when left out)"
+msgstr "copy/move: a pasta (é perguntada se faltar)"
+
+#: hala/cli.py:361
+msgid "phone: KDE Connect device id (asks when there are several)"
+msgstr ""
+"phone: id do dispositivo no KDE Connect (é perguntado se houver vários)"
+
+#: hala/cli.py:364
+msgid "a floating shelf that holds files to drag elsewhere"
+msgstr ""
+"uma prateleira flutuante que guarda arquivos para arrastar para outro lugar"
+
+#: hala/cli.py:369
+msgid "add (or --remove) the Dolphin menus, app entry and shortcut"
+msgstr ""
+"adicionar (ou remover com --remove) os menus do Dolphin, a entrada do "
+"aplicativo e o atalho"
+
+#: hala/cli.py:375
+msgid "show or change the size limits (huge pictures, archives)"
+msgstr ""
+"mostrar ou alterar os limites de tamanho (imagens enormes, arquivos "
+"compactados)"
+
+#: hala/cli.py:378
+msgid "change one, e.g. `hala limits set max_megapixels 1000`"
+msgstr "alterar um, por ex. `hala limits set max_megapixels 1000`"
+
+#: hala/cli.py:382
+msgid "go back to the default for one (or, without a name, for all)"
+msgstr "voltar ao padrão de um (ou, sem nome, de todos)"
+
+#: hala/cli.py:389
+msgid "show the whole conversion table"
+msgstr "mostrar a tabela de conversões inteira"
+
+#: hala/cli.py:391
+msgid "check the converter tools are installed"
+msgstr "verificar se os programas de conversão estão instalados"
+
+#: hala/cli.py:399
+msgid "compress, trim, merge… (`hala tool` lists them)"
+msgstr "comprimir, cortar, juntar… (`hala tool` lista todas)"
+
+#: hala/cli.py:405
+msgid "in order"
+msgstr "em ordem"
+
+#: hala/cli.py:416
+msgid "(leave it out to be asked; on the command line, other users can see it)"
+msgstr ""
+"(omita para ser perguntado; na linha de comando, outros usuários podem vê-la)"
+
+#: hala/cli.py:424
+msgid "print it instead of changing it"
+msgstr "mostrar em vez de alterar"
+
+#: hala/cli.py:428
+msgid "one JSON line per finished job"
+msgstr "uma linha JSON por tarefa concluída"
+
+#: hala/cli.py:466
+#, python-brace-format
+msgid ""
+"Hala hit a bug: {error}\n"
+"\n"
+"Details: {log}"
+msgstr ""
+"O Hala encontrou um erro: {error}\n"
+"\n"
+"Detalhes: {log}"
+
+#: hala/convert.py:35 hala/tools/__init__.py:162
+#, python-brace-format
+msgid "{path} does not exist"
+msgstr "{path} não existe"
+
+#: hala/convert.py:40 hala/tools/metadata.py:23
+msgid "nothing"
+msgstr "nada"
+
+#: hala/convert.py:41
+#, python-brace-format
+msgid "can't convert {source} to {target} (it can become: {offered})"
+msgstr ""
+"não é possível converter {source} para {target} (pode virar: {offered})"
+
+#: hala/convert.py:42
+msgid "this file"
+msgstr "este arquivo"
+
+#: hala/convert.py:63
+#, python-brace-format
+msgid "can't write to {folder}: {reason} (pick another folder with -o)"
+msgstr ""
+"não é possível gravar em {folder}: {reason} (escolha outra pasta com -o)"
+
+#: hala/convert.py:91
+#, python-brace-format
+msgid "{name} ({format} pages)"
+msgstr "{name} (páginas {format})"
+
+#: hala/convert.py:138
+#, python-brace-format
+msgid "can't save the result in {folder}: {reason}"
+msgstr "não é possível salvar o resultado em {folder}: {reason}"
+
+#: hala/desktop.py:114
+#, python-brace-format
+msgid "{name} is already {format}"
+msgstr "{name} já é {format}"
+
+#: hala/desktop.py:117
+#, python-brace-format
+msgid "{name} can't become {format}"
+msgstr "{name} não pode virar {format}"
+
+#: hala/desktop.py:123 hala/gui/wheelapp.py:108
+msgid "Nothing to convert"
+msgstr "Nada para converter"
+
+#: hala/desktop.py:133
+#, python-brace-format
+msgid "Converting {n} file to {format}"
+msgid_plural "Converting {n} files to {format}"
+msgstr[0] "Convertendo {n} arquivo para {format}"
+msgstr[1] "Convertendo {n} arquivos para {format}"
+
+#: hala/desktop.py:138 hala/desktop.py:178
+msgid "File"
+msgstr "Arquivo"
+
+#: hala/desktop.py:159
+#, python-brace-format
+msgid "Converted to {format}"
+msgstr "Convertido para {format}"
+
+#: hala/desktop.py:198 hala/desktop.py:203
+msgid "Cancelled"
+msgstr "Cancelado"
+
+#: hala/desktop.py:212
+msgid "Open"
+msgstr "Abrir"
+
+#: hala/desktop.py:212 hala/desktop.py:222 hala/desktop.py:247
+#: hala/desktop.py:478 hala/desktop.py:485 hala/gui/shelf.py:199
+msgid "Show in folder"
+msgstr "Mostrar na pasta"
+
+#: hala/desktop.py:217 hala/gui/editor.py:418
+msgid "Copy"
+msgstr "Copiar"
+
+#: hala/desktop.py:220 hala/desktop.py:481
+#, python-brace-format
+msgid "{files} in {folder}"
+msgstr "{files} em {folder}"
+
+#: hala/desktop.py:237
+msgid "The rest were cancelled."
+msgstr "O restante foi cancelado."
+
+#: hala/desktop.py:240
+#, python-brace-format
+msgid "{done}: {n} of {total}"
+msgstr "{done}: {n} de {total}"
+
+#: hala/desktop.py:242
+#, python-brace-format
+msgid "{tool} didn't work"
+msgstr "{tool} não funcionou"
+
+#: hala/desktop.py:244
+#, python-brace-format
+msgid "{n} of {total} converted to {format}"
+msgstr "{n} de {total} convertidos para {format}"
+
+#: hala/desktop.py:246
+#, python-brace-format
+msgid "Couldn't convert to {format}"
+msgstr "Não foi possível converter para {format}"
+
+#: hala/desktop.py:249
+msgid "Details"
+msgstr "Detalhes"
+
+#: hala/desktop.py:343
+#, python-brace-format
+msgid "…and {n} more (see {log})"
+msgstr "…e mais {n} (veja {log})"
+
+#: hala/desktop.py:368
+msgid "failed"
+msgstr "falhou"
+
+#: hala/desktop.py:408
+#, python-brace-format
+msgid "Can become: {formats}."
+msgstr "Pode virar: {formats}."
+
+#: hala/desktop.py:409
+msgid "Right-click → Convert to in Dolphin."
+msgstr "Clique com o botão direito → Converter para no Dolphin."
+
+#: hala/desktop.py:410
+msgid "Hala can't convert these files."
+msgstr "O Hala não consegue converter estes arquivos."
+
+#: hala/desktop.py:416
+#, python-brace-format
+msgid "{name}: {tool} doesn't take {format} files"
+msgstr "{name}: {tool} não aceita arquivos {format}"
+
+#: hala/desktop.py:417
+msgid "these"
+msgstr "desse tipo"
+
+#: hala/desktop.py:430
+#, python-brace-format
+msgid "{action} needs at least one file"
+msgstr "{action} precisa de pelo menos um arquivo"
+
+#: hala/desktop.py:447
+msgid "no action called {name!r} (there's {actions})"
+msgstr "não existe a ação {name!r} (existem {actions})"
+
+#: hala/desktop.py:470
+#, python-brace-format
+msgid "Copied {n} of {total} file"
+msgid_plural "Copied {n} of {total} files"
+msgstr[0] "{n} de {total} arquivo copiado"
+msgstr[1] "{n} de {total} arquivos copiados"
+
+#: hala/desktop.py:472
+#, python-brace-format
+msgid "Moved {n} of {total} file"
+msgid_plural "Moved {n} of {total} files"
+msgstr[0] "{n} de {total} arquivo movido"
+msgstr[1] "{n} de {total} arquivos movidos"
+
+#: hala/desktop.py:475
+msgid "Couldn't copy it"
+msgid_plural "Couldn't copy them"
+msgstr[0] "Não foi possível copiar"
+msgstr[1] "Não foi possível copiá-los"
+
+#: hala/desktop.py:476
+msgid "Couldn't move it"
+msgid_plural "Couldn't move them"
+msgstr[0] "Não foi possível mover"
+msgstr[1] "Não foi possível movê-los"
+
+#: hala/desktop.py:483
+#, python-brace-format
+msgid "Copied to {folder}"
+msgstr "Copiado para {folder}"
+
+#: hala/desktop.py:483
+#, python-brace-format
+msgid "Moved to {folder}"
+msgstr "Movido para {folder}"
+
+#: hala/desktop.py:495
+msgid "Can't send to a phone"
+msgstr "Não é possível enviar para um celular"
+
+#: hala/desktop.py:499
+msgid "Open KDE Connect"
+msgstr "Abrir o KDE Connect"
+
+#: hala/desktop.py:501
+msgid "No phone connected"
+msgstr "Nenhum celular conectado"
+
+#: hala/desktop.py:501
+msgid "Pair a phone in KDE Connect and make sure it's on the same network."
+msgstr "Pareie um celular no KDE Connect e confira se ele está na mesma rede."
+
+#: hala/desktop.py:520
+#, python-brace-format
+msgid "Sending {n} of {total} file to {device}"
+msgid_plural "Sending {n} of {total} files to {device}"
+msgstr[0] "Enviando {n} de {total} arquivo para {device}"
+msgstr[1] "Enviando {n} de {total} arquivos para {device}"
+
+#: hala/desktop.py:523
+#, python-brace-format
+msgid "Couldn't send to {device}"
+msgstr "Não foi possível enviar para {device}"
+
+#: hala/desktop.py:528
+#, python-brace-format
+msgid "Sending to {device}"
+msgstr "Enviando para {device}"
+
+#: hala/editing.py:89 hala/editing.py:114
+#, python-brace-format
+msgid "can't open {name}: {reason}"
+msgstr "não é possível abrir {name}: {reason}"
+
+#: hala/editing.py:103
+#, python-brace-format
+msgid ""
+"can't open {name}: Qt can't read this format and vips isn't installed (apt "
+"install libvips-tools)"
+msgstr ""
+"não é possível abrir {name}: o Qt não lê este formato e o vips não está "
+"instalado (apt install libvips-tools)"
+
+#: hala/editing.py:107
+#, python-brace-format
+msgid "can't open {name}: reading it timed out"
+msgstr "não é possível abrir {name}: a leitura demorou demais"
+
+#: hala/editing.py:111 hala/editing.py:118
+#, python-brace-format
+msgid "can't open {name} as a picture"
+msgstr "não é possível abrir {name} como imagem"
+
+#: hala/editing.py:332
+#, python-brace-format
+msgid "{name} (edited)"
+msgstr "{name} (editado)"
+
+#: hala/editing.py:340
+#, python-brace-format
+msgid "can't save as {format}; pick one of {formats}"
+msgstr "não é possível salvar como {format}; escolha um de {formats}"
+
+#: hala/editing.py:341
+msgid "a file without an extension"
+msgstr "um arquivo sem extensão"
+
+#: hala/editing.py:352
+#, python-brace-format
+msgid "couldn't write a {format} file: {reason}"
+msgstr "não foi possível gravar um arquivo {format}: {reason}"
+
+#: hala/editing.py:356 hala/editing.py:543
+#, python-brace-format
+msgid "can't save in {folder}: {reason}"
+msgstr "não é possível salvar em {folder}: {reason}"
+
+#: hala/editing.py:395
+#, python-brace-format
+msgid "{name} is password-protected"
+msgstr "{name} está protegido por senha"
+
+#: hala/editing.py:402
+msgid "opening a password-protected PDF needs qpdf (apt install qpdf)"
+msgstr "abrir um PDF protegido por senha requer o qpdf (apt install qpdf)"
+
+#: hala/editing.py:405
+#, python-brace-format
+msgid "unlocking {name} took too long"
+msgstr "desbloquear {name} demorou demais"
+
+#: hala/editing.py:408 hala/tools/pdftools.py:113
+#, python-brace-format
+msgid "wrong password for {name}"
+msgstr "senha errada para {name}"
+
+#: hala/editing.py:411
+#, python-brace-format
+msgid "couldn't unlock {name}"
+msgstr "não foi possível desbloquear {name}"
+
+#: hala/editing.py:505
+msgid "a PDF can only be saved as a PDF"
+msgstr "um PDF só pode ser salvo como PDF"
+
+#: hala/editing.py:534
+msgid "saving a PDF needs qpdf (apt install qpdf)"
+msgstr "salvar um PDF requer o qpdf (apt install qpdf)"
+
+#: hala/editing.py:537
+msgid "couldn't write the PDF"
+msgstr "não foi possível gravar o PDF"
+
+#: hala/editing.py:541
+msgid "writing the PDF took too long"
+msgstr "gravar o PDF demorou demais"
+
+#: hala/engines/archives.py:45
+#, python-brace-format
+msgid "unsafe entry in archive: {reason}"
+msgstr "entrada insegura no arquivo compactado: {reason}"
+
+#: hala/engines/archives.py:48 hala/engines/archives.py:68
+#, python-brace-format
+msgid "can't read this archive: {reason}"
+msgstr "não é possível ler este arquivo compactado: {reason}"
+
+#: hala/engines/archives.py:79 hala/engines/archives.py:173
+msgid "the archive is empty"
+msgstr "o arquivo compactado está vazio"
+
+#: hala/engines/archives.py:138
+#, python-brace-format
+msgid ""
+"the archive would unpack to more than {size}, more than its listing said; "
+"refusing it as a likely zip bomb"
+msgstr ""
+"o arquivo compactado ocuparia mais de {size} ao ser extraído, mais do que "
+"sua lista indica; recusado como provável bomba zip"
+
+#: hala/engines/archives.py:158
+#, python-brace-format
+msgid "{name} is a {kind} file, not a .{ext} archive; refusing it"
+msgstr "{name} é um arquivo {kind}, não um arquivo .{ext}; recusado"
+
+#: hala/engines/archives.py:159
+#, python-brace-format
+msgid "{name} is not a readable archive, not a .{ext} archive; refusing it"
+msgstr ""
+"{name} não é um arquivo compactado legível nem um arquivo .{ext}; recusado"
+
+#: hala/engines/archives.py:168
+msgid ""
+"{name} doesn't list the size of {entry!r}; refusing it as a likely zip bomb"
+msgstr ""
+"{name} não informa o tamanho de {entry!r}; recusado como provável bomba zip"
+
+#: hala/engines/archives.py:182
+#, python-brace-format
+msgid "unsafe link in archive: {entry}"
+msgstr "link inseguro no arquivo compactado: {entry}"
+
+#: hala/engines/documents.py:70
+#, python-brace-format
+msgid "LibreOffice could not convert this file to {format}"
+msgstr "O LibreOffice não conseguiu converter este arquivo para {format}"
+
+#: hala/engines/documents.py:138
+#, python-brace-format
+msgid "and {n} more"
+msgstr "e mais {n}"
+
+#: hala/engines/documents.py:173
+#, python-brace-format
+msgid "left out {n} picture from outside the document's folder: {names}"
+msgid_plural ""
+"left out {n} pictures from outside the document's folder: {names}"
+msgstr[0] "{n} imagem de fora da pasta do documento ficou de fora: {names}"
+msgstr[1] "{n} imagens de fora da pasta do documento ficaram de fora: {names}"
+
+#: hala/engines/documents.py:205
+msgid "no reason given"
+msgstr "nenhum motivo informado"
+
+#: hala/engines/documents.py:206
+#, python-brace-format
+msgid "WeasyPrint failed ({reason}); made through LibreOffice instead"
+msgstr "O WeasyPrint falhou ({reason}); feito com o LibreOffice no lugar"
+
+#: hala/engines/documents.py:213
+#, python-brace-format
+msgid "left out {n} picture WeasyPrint couldn't load: {names}"
+msgid_plural "left out {n} pictures WeasyPrint couldn't load: {names}"
+msgstr[0] ""
+"{n} imagem que o WeasyPrint não conseguiu carregar ficou de fora: {names}"
+msgstr[1] ""
+"{n} imagens que o WeasyPrint não conseguiu carregar ficaram de fora: {names}"
+
+#: hala/engines/images.py:38
+#, python-brace-format
+msgid "can't read {name}: {reason}"
+msgstr "não é possível ler {name}: {reason}"
+
+#: hala/engines/images.py:43
+#, python-brace-format
+msgid ""
+"{name} isn't a picture Hala can read (its contents don't match any image "
+"format)"
+msgstr ""
+"{name} não é uma imagem que o Hala consiga ler (o conteúdo não corresponde a "
+"nenhum formato de imagem)"
+
+#: hala/engines/media.py:94
+msgid "this video has no audio track"
+msgstr "este vídeo não tem faixa de áudio"
+
+#: hala/engines/pdf.py:64
+#, python-brace-format
+msgid "couldn't check whether {name} is password-protected: {reason}"
+msgstr ""
+"não foi possível verificar se {name} está protegido por senha: {reason}"
+
+#: hala/engines/pdf.py:73
+#, python-brace-format
+msgid ""
+"{name} is password-protected: unlock it first (Hala tools → Unlock PDF, or "
+"hala tool unlock)"
+msgstr ""
+"{name} está protegido por senha: desbloqueie primeiro (Ferramentas do Hala → "
+"Desbloquear PDF, ou hala tool unlock)"
+
+#: hala/engines/pdf.py:93
+msgid "poppler isn't installed (apt install poppler-utils)"
+msgstr "o poppler não está instalado (apt install poppler-utils)"
+
+#: hala/engines/pdf.py:96
+msgid "it took too long"
+msgstr "demorou demais"
+
+#: hala/engines/pdf.py:106
+#, python-brace-format
+msgid "can't open {name} as a PDF"
+msgstr "não é possível abrir {name} como PDF"
+
+#: hala/engines/pdf.py:111
+#, python-brace-format
+msgid "{name} has no pages"
+msgstr "{name} não tem páginas"
+
+#: hala/engines/pdf.py:113
+msgid "{name} has {n:,} pages; that's more than Hala handles"
+msgstr "{name} tem {n:,} páginas; é mais do que o Hala aguenta"
+
+#: hala/engines/pdf.py:125
+msgid "(couldn't read its page sizes)"
+msgstr "(não foi possível ler o tamanho das páginas)"
+
+#: hala/engines/pdf.py:139
+msgid ""
+"{name} has {n:,} pages; making a picture of each is limited to {limit:,}"
+msgstr ""
+"{name} tem {n:,} páginas; criar uma imagem de cada uma é limitado a {limit:,}"
+
+#: hala/engines/pdf.py:148
+msgid ""
+"{name}'s pages would make {total:,.0f} gigapixels of pictures; the limit is "
+"{limit:,.0f}"
+msgstr ""
+"as páginas de {name} gerariam {total:,.0f} gigapixels de imagens; o limite é "
+"{limit:,.0f}"
+
+#: hala/engines/pdf.py:157
+msgid ""
+"the pictures of {name}'s {n:,} pages would need about {need}, but only "
+"{free} is free"
+msgstr ""
+"as imagens das {n:,} páginas de {name} precisariam de cerca de {need}, mas "
+"só há {free} livres"
+
+#: hala/engines/pdf.py:175
+msgid "this PDF has no pages to render"
+msgstr "este PDF não tem páginas para renderizar"
+
+#: hala/formats.py:49
+msgctxt "format"
+msgid "Folder (extract)"
+msgstr "Pasta (extrair)"
+
+#: hala/formats.py:50
+msgctxt "format"
+msgid "Text"
+msgstr "Texto"
+
+#: hala/gui/dialog.py:55
+msgid "Order (drag to rearrange):"
+msgstr "Ordem (arraste para reorganizar):"
+
+#: hala/gui/dialog.py:71
+#, python-brace-format
+msgid "{setting}:"
+msgstr "{setting}:"
+
+#: hala/gui/dialog.py:125
+msgid "the end"
+msgstr "o fim"
+
+#: hala/gui/dialog.py:129
+#, python-brace-format
+msgid "now: {value}"
+msgstr "atual: {value}"
+
+#: hala/gui/dialog.py:138
+#, python-brace-format
+msgid "Length: {length}"
+msgstr "Duração: {length}"
+
+#: hala/gui/dialog.py:174
+msgid "start: no frame"
+msgstr "início: sem quadro"
+
+#: hala/gui/dialog.py:175
+msgid "end: no frame"
+msgstr "fim: sem quadro"
+
+#: hala/gui/dialog.py:178
+#, python-brace-format
+msgid "end at {time}"
+msgstr "fim em {time}"
+
+#: hala/gui/dialog.py:178
+#, python-brace-format
+msgid "start at {time}"
+msgstr "início em {time}"
+
+#: hala/gui/dropzone.py:54
+msgid "Drag files to the screen edge to convert them"
+msgstr "Arraste arquivos para a borda da tela para convertê-los"
+
+#: hala/gui/dropzone.py:54 hala/gui/dropzone.py:74
+msgid "Hala drop zone"
+msgstr "Área de soltar do Hala"
+
+#: hala/gui/dropzone.py:77
+msgid "Drag files here to convert them"
+msgstr "Arraste arquivos para cá para convertê-los"
+
+#: hala/gui/dropzone.py:150
+msgid "Hala: drag files to the screen edge to convert them"
+msgstr "Hala: arraste arquivos para a borda da tela para convertê-los"
+
+#: hala/gui/dropzone.py:152 hala/gui/dropzone.py:174
+msgid "Hide drop zone"
+msgstr "Ocultar a área de soltar"
+
+#: hala/gui/dropzone.py:157
+msgid "Show shelf"
+msgstr "Mostrar a prateleira"
+
+#: hala/gui/dropzone.py:159
+msgid "Wheel for copied files"
+msgstr "Roda para os arquivos copiados"
+
+#: hala/gui/dropzone.py:164
+msgid "Quit"
+msgstr "Sair"
+
+#: hala/gui/dropzone.py:174
+msgid "Show drop zone"
+msgstr "Mostrar a área de soltar"
+
+#: hala/gui/dropzone.py:205
+msgid "the drop zone is already running"
+msgstr "a área de soltar já está rodando"
+
+#: hala/gui/editor.py:73
+msgid "Crop"
+msgstr "Recortar"
+
+#: hala/gui/editor.py:73
+msgid "Drag the area to keep, then press Enter"
+msgstr "Arraste a área a manter e pressione Enter"
+
+#: hala/gui/editor.py:74
+msgid "Arrow"
+msgstr "Seta"
+
+#: hala/gui/editor.py:74
+msgid "Drag from the tail to the point"
+msgstr "Arraste da cauda até a ponta"
+
+#: hala/gui/editor.py:75 hala/gui/editor.py:76 hala/gui/editor.py:77
+msgid "Drag"
+msgstr "Arraste"
+
+#: hala/gui/editor.py:75
+msgid "Line"
+msgstr "Linha"
+
+#: hala/gui/editor.py:76
+msgid "Rectangle"
+msgstr "Retângulo"
+
+#: hala/gui/editor.py:77
+msgid "Ellipse"
+msgstr "Elipse"
+
+#: hala/gui/editor.py:78
+msgid "Draw freely"
+msgstr "Desenhe à mão livre"
+
+#: hala/gui/editor.py:78
+msgid "Pen"
+msgstr "Caneta"
+
+#: hala/gui/editor.py:79
+msgid "Click where the text should start"
+msgstr "Clique onde o texto deve começar"
+
+#: hala/gui/editor.py:79
+msgid "Text"
+msgstr "Texto"
+
+#: hala/gui/editor.py:80
+msgid "Redact (black box)"
+msgstr "Tarjar (caixa preta)"
+
+#: hala/gui/editor.py:81
+msgid "Drag over what to hide; it is blacked out for good"
+msgstr "Arraste sobre o que quer esconder; fica coberto de preto para sempre"
+
+#: hala/gui/editor.py:82
+msgid "Redact (pixelate)"
+msgstr "Tarjar (pixelizar)"
+
+#: hala/gui/editor.py:83
+msgid "Drag over what to hide; it is pixelated for good"
+msgstr "Arraste sobre o que quer esconder; fica pixelizado para sempre"
+
+#: hala/gui/editor.py:87
+msgid "Free"
+msgstr "Livre"
+
+#: hala/gui/editor.py:297
+msgid "Add text"
+msgstr "Adicionar texto"
+
+#: hala/gui/editor.py:297
+msgid "Text:"
+msgstr "Texto:"
+
+#: hala/gui/editor.py:351
+msgid "Tools"
+msgstr "Ferramentas"
+
+#: hala/gui/editor.py:367
+msgid "Options"
+msgstr "Opções"
+
+#: hala/gui/editor.py:372
+msgid "Colour for shapes and text"
+msgstr "Cor das formas e do texto"
+
+#: hala/gui/editor.py:379
+msgctxt "line width"
+msgid "Line"
+msgstr "Linha"
+
+#: hala/gui/editor.py:386
+msgctxt "text size"
+msgid "Text"
+msgstr "Texto"
+
+#: hala/gui/editor.py:393
+msgid "Crop shape"
+msgstr "Formato do recorte"
+
+#: hala/gui/editor.py:398
+msgid "Apply crop"
+msgstr "Aplicar recorte"
+
+#: hala/gui/editor.py:401
+msgid "Rotate left"
+msgstr "Girar para a esquerda"
+
+#: hala/gui/editor.py:403
+msgid "Rotate right"
+msgstr "Girar para a direita"
+
+#: hala/gui/editor.py:405
+msgid "Flip horizontally"
+msgstr "Espelhar horizontalmente"
+
+#: hala/gui/editor.py:407
+msgid "Flip vertically"
+msgstr "Espelhar verticalmente"
+
+#: hala/gui/editor.py:410
+msgid "Undo"
+msgstr "Desfazer"
+
+#: hala/gui/editor.py:411
+msgid "Redo"
+msgstr "Refazer"
+
+#: hala/gui/editor.py:415 hala/tools/metadata.py:126
+msgid "Save copy"
+msgstr "Salvar cópia"
+
+#: hala/gui/editor.py:416
+msgid "Save as…"
+msgstr "Salvar como…"
+
+#: hala/gui/editor.py:421
+msgid "Previous page"
+msgstr "Página anterior"
+
+#: hala/gui/editor.py:423
+msgid "Next page"
+msgstr "Próxima página"
+
+#: hala/gui/editor.py:436 hala/gui/editor.py:449
+msgid "Colour"
+msgstr "Cor"
+
+#: hala/gui/editor.py:475
+msgid "Couldn't show the page"
+msgstr "Não foi possível mostrar a página"
+
+#: hala/gui/editor.py:491
+#, python-brace-format
+msgid "Page {n} of {total}"
+msgstr "Página {n} de {total}"
+
+#: hala/gui/editor.py:497
+#, python-brace-format
+msgid "{n} page edited"
+msgid_plural "{n} pages edited"
+msgstr[0] "{n} página editada"
+msgstr[1] "{n} páginas editadas"
+
+#: hala/gui/editor.py:518 hala/gui/editor.py:589
+msgid "Couldn't save"
+msgstr "Não foi possível salvar"
+
+#: hala/gui/editor.py:524
+msgid "Saved under another name"
+msgstr "Salvo com outro nome"
+
+#: hala/gui/editor.py:525
+#, python-brace-format
+msgid ""
+"{name} already exists, so the edit was saved as {saved}. Hala never "
+"overwrites files."
+msgstr ""
+"{name} já existe, então a edição foi salva como {saved}. O Hala nunca "
+"sobrescreve arquivos."
+
+#: hala/gui/editor.py:528
+#, python-brace-format
+msgid "Saved {path} (it opens without a password; the original keeps its own)"
+msgstr "{path} salvo (abre sem senha; o original mantém a dele)"
+
+#: hala/gui/editor.py:529
+#, python-brace-format
+msgid "Saved {path}"
+msgstr "{path} salvo"
+
+#: hala/gui/editor.py:536
+msgid "Nothing new to save"
+msgstr "Nada novo para salvar"
+
+#: hala/gui/editor.py:550
+msgid "Save as"
+msgstr "Salvar como"
+
+#: hala/gui/editor.py:562
+msgid "Copied to the clipboard"
+msgstr "Copiado para a área de transferência"
+
+#: hala/gui/editor.py:576
+msgid "Unsaved edits"
+msgstr "Edições não salvas"
+
+#: hala/gui/editor.py:577
+#, python-brace-format
+msgid "Save your edits as {name} before closing?"
+msgstr "Salvar suas edições como {name} antes de fechar?"
+
+#: hala/gui/editor.py:618
+#, python-brace-format
+msgid ""
+"Something went wrong: {error}\n"
+"\n"
+"Your edits are still open; try Save as. Details: {log}"
+msgstr ""
+"Algo deu errado: {error}\n"
+"\n"
+"Suas edições continuam abertas; tente Salvar como. Detalhes: {log}"
+
+#: hala/gui/editor.py:632
+#, python-brace-format
+msgid ""
+"{name} is password-protected.\n"
+"\n"
+"Password:"
+msgstr ""
+"{name} está protegido por senha.\n"
+"\n"
+"Senha:"
+
+#: hala/gui/editor.py:634 hala/tools/pdftools.py:138
+msgid "Password"
+msgstr "Senha"
+
+#: hala/gui/editor.py:641
+#, python-brace-format
+msgid "That password doesn't open {name}. Try again:"
+msgstr "Essa senha não abre {name}. Tente de novo:"
+
+#: hala/gui/editor.py:654
+#, python-brace-format
+msgid "{name}: not a picture or PDF Hala can edit"
+msgstr "{name}: não é uma imagem nem um PDF que o Hala possa editar"
+
+#: hala/gui/overlay.py:239
+msgid "Only local files can be used"
+msgstr "Só arquivos locais podem ser usados"
+
+#: hala/gui/pickers.py:51
+msgid "Send to phone"
+msgstr "Enviar para o celular"
+
+#: hala/gui/pickers.py:51
+msgid "Send to:"
+msgstr "Enviar para:"
+
+#: hala/gui/shelf.py:120 hala/gui/shelf.py:132
+msgid "Couldn't open the shelf"
+msgstr "Não foi possível abrir a prateleira"
+
+#: hala/gui/shelf.py:132
+#, python-brace-format
+msgid "It didn't start. Details: {log}"
+msgstr "Ela não iniciou. Detalhes: {log}"
+
+#: hala/gui/shelf.py:202
+msgid "Remove from shelf"
+msgstr "Remover da prateleira"
+
+#: hala/gui/shelf.py:214
+msgid "Drag all the files"
+msgstr "Arrastar todos os arquivos"
+
+#: hala/gui/shelf.py:236
+msgid "Hala shelf"
+msgstr "Prateleira do Hala"
+
+#: hala/gui/shelf.py:250
+msgid "Clear the shelf"
+msgstr "Esvaziar a prateleira"
+
+#: hala/gui/shelf.py:251
+msgid "Close the shelf"
+msgstr "Fechar a prateleira"
+
+#: hala/gui/shelf.py:261
+msgid ""
+"Drop files here to hold them,\n"
+"then drag them anywhere."
+msgstr ""
+"Solte arquivos aqui para guardá-los\n"
+"e depois arraste-os para onde quiser."
+
+#: hala/gui/shelf.py:339
+#, python-brace-format
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} item"
+msgstr[1] "{n} itens"
+
+#: hala/gui/shelf.py:514
+msgid "the shelf is starting but isn't answering; try again"
+msgstr "a prateleira está iniciando mas não responde; tente de novo"
+
+#: hala/gui/wheelapp.py:101
+#, python-brace-format
+msgid "Only files on this computer can be used ({n} network file skipped)."
+msgid_plural ""
+"Only files on this computer can be used ({n} network files skipped)."
+msgstr[0] ""
+"Só arquivos deste computador podem ser usados ({n} arquivo de rede ignorado)."
+msgstr[1] ""
+"Só arquivos deste computador podem ser usados ({n} arquivos de rede "
+"ignorados)."
+
+#: hala/gui/wheelapp.py:105
+msgid "Copy files first (Ctrl+C in Dolphin), then press the shortcut again."
+msgstr ""
+"Copie os arquivos primeiro (Ctrl+C no Dolphin) e pressione o atalho de novo."
+
+#: hala/gui/wheelapp.py:107
+msgid "No files were given."
+msgstr "Nenhum arquivo foi informado."
+
+#: hala/i18n.py:68
+#, python-brace-format
+msgid "{n} file"
+msgid_plural "{n} files"
+msgstr[0] "{n} arquivo"
+msgstr[1] "{n} arquivos"
+
+#: hala/limits.py:53
+msgid "pictures (and PDF pages, as drawn) larger than this are refused"
+msgstr ""
+"imagens (e páginas de PDF, como desenhadas) maiores que isso são recusadas"
+
+#: hala/limits.py:55
+msgid "archives holding more files than this are refused"
+msgstr "arquivos compactados com mais arquivos que isso são recusados"
+
+#: hala/limits.py:57
+msgid ""
+"archives that unpack to more than this many times their size are refused..."
+msgstr ""
+"arquivos compactados que se expandem para mais de tantas vezes o seu tamanho "
+"são recusados…"
+
+#: hala/limits.py:60
+msgid "...once they unpack to more than this many GB"
+msgstr "…quando se expandem para mais de tantos GB"
+
+#: hala/limits.py:78
+msgid "no limit called {key!r}; there are {keys}"
+msgstr "nenhum limite chamado {key!r}; existem {keys}"
+
+#: hala/limits.py:88
+msgid "{key} must be a whole number, not {text!r}"
+msgstr "{key} deve ser um número inteiro, não {text!r}"
+
+#: hala/limits.py:91
+msgid "{key} must be between {lowest:,} and {highest:,}"
+msgstr "{key} deve estar entre {lowest:,} e {highest:,}"
+
+#: hala/limits.py:106
+#, python-brace-format
+msgid "{path}: can't read it ({error}); using the defaults"
+msgstr "{path}: não foi possível ler ({error}); usando os padrões"
+
+#: hala/limits.py:111
+#, python-brace-format
+msgid "{path}: no [limits] section; using the defaults"
+msgstr "{path}: sem seção [limits]; usando os padrões"
+
+#: hala/limits.py:116
+#, python-brace-format
+msgid "{path}: {problem}; ignored"
+msgstr "{path}: {problem}; ignorado"
+
+#: hala/limits.py:167
+#, python-brace-format
+msgid "(to allow it: hala limits set {key} N)"
+msgstr "(para permitir: hala limits set {key} N)"
+
+#: hala/limits.py:172
+#, python-brace-format
+msgid "{size} byte"
+msgid_plural "{size} bytes"
+msgstr[0] "{size} byte"
+msgstr[1] "{size} bytes"
+
+#: hala/limits.py:174
+msgid "GB"
+msgstr "GB"
+
+#. Translators: file size units (kilobytes, megabytes...), e.g. "Ko", "Mo" in French.
+#: hala/limits.py:174
+msgid "KB"
+msgstr "KB"
+
+#: hala/limits.py:174 hala/tools/compress.py:44
+msgid "MB"
+msgstr "MB"
+
+#: hala/limits.py:178
+msgid "TB"
+msgstr "TB"
+
+#: hala/limits.py:194
+#, python-brace-format
+msgid "not enough free space in {folder} ({free} free, {need} needed)"
+msgstr ""
+"não há espaço livre suficiente em {folder} ({free} livres, {need} "
+"necessários)"
+
+#: hala/limits.py:221
+msgid ""
+"the archive holds {entries:,} entries (more than {limit:,}); refusing it as "
+"a likely zip bomb"
+msgstr ""
+"o arquivo compactado tem {entries:,} entradas (mais de {limit:,}); recusado "
+"como provável bomba zip"
+
+#: hala/limits.py:226
+msgid ""
+"the archive would unpack to {total}, {ratio:,} times its size; refusing it "
+"as a likely zip bomb"
+msgstr ""
+"o arquivo compactado ocuparia {total} ao ser extraído, {ratio:,} vezes o seu "
+"tamanho; recusado como provável bomba zip"
+
+#: hala/limits.py:231
+#, python-brace-format
+msgid "the archive unpacks to {total}, but only {free} is free"
+msgstr ""
+"o arquivo compactado ocupa {total} ao ser extraído, mas só há {free} livres"
+
+#: hala/limits.py:240
+msgid ""
+"the archive would unpack to {total}, {ratio:,} times its size: that's the "
+"shape of a zip bomb, so it wasn't made"
+msgstr ""
+"o arquivo compactado ocuparia {total} ao ser extraído, {ratio:,} vezes o seu "
+"tamanho: esse é o formato de uma bomba zip, então ele não foi criado"
+
+#: hala/limits.py:256
+#, python-brace-format
+msgid ""
+"{name} is a sparse file ({size} in size but {on_disk} on disk); packing it "
+"would make an archive that unpacks far larger than it looks, so the archive "
+"wasn't made (move that file out of the selection)"
+msgstr ""
+"{name} é um arquivo esparso ({size} de tamanho mas {on_disk} no disco); "
+"compactá-lo geraria um arquivo que fica muito maior ao ser extraído do que "
+"parece, então ele não foi criado (tire esse arquivo da seleção)"
+
+#: hala/limits.py:277
+msgid ""
+"{name} is {width:,} x {height:,} pixels ({megapixels:,.0f} megapixels); "
+"pictures over {limit:,.0f} megapixels are refused"
+msgstr ""
+"{name} tem {width:,} x {height:,} pixels ({megapixels:,.0f} megapixels); "
+"imagens com mais de {limit:,.0f} megapixels são recusadas"
+
+#: hala/runner.py:50
+#, python-brace-format
+msgid "'{tool}' is not installed (run `hala doctor`)"
+msgstr "\"{tool}\" não está instalado (execute `hala doctor`)"
+
+#: hala/runner.py:73
+msgid "cancelled"
+msgstr "cancelado"
+
+#: hala/runner.py:99
+msgid "no command to run"
+msgstr "nenhum comando para executar"
+
+#: hala/runner.py:143
+#, python-brace-format
+msgid "{name} stopped responding (no result after {seconds:.0f} s)"
+msgstr "{name} parou de responder (sem resultado após {seconds:.0f} s)"
+
+#: hala/runner.py:149
+#, python-brace-format
+msgid ""
+"{name} failed:\n"
+"{details}"
+msgstr ""
+"{name} falhou:\n"
+"{details}"
+
+#: hala/servicemenus.py:45
+msgid "Convert to"
+msgstr "Converter para"
+
+#: hala/servicemenus.py:45
+msgid "Crop, annotate, redact…"
+msgstr "Recortar, anotar, tarjar…"
+
+#: hala/servicemenus.py:45
+msgid "Hala tools"
+msgstr "Ferramentas do Hala"
+
+#: hala/servicemenus.py:45
+msgid "Hala…"
+msgstr "Hala…"
+
+#: hala/servicemenus.py:46
+msgid "File Converter"
+msgstr "Conversor de arquivos"
+
+#: hala/servicemenus.py:46
+msgid "Put on shelf"
+msgstr "Pôr na prateleira"
+
+#: hala/servicemenus.py:47
+msgid "Convert, compress and edit files locally: drag them to the screen edge"
+msgstr ""
+"Converta, comprima e edite arquivos no seu computador: arraste-os para a "
+"borda da tela"
+
+#. Translators: search words for the application menu, separated (and ended) by ";".
+#: hala/servicemenus.py:49
+msgid "convert;converter;compress;pdf;image;video;audio;"
+msgstr "converter;conversor;comprimir;pdf;imagem;vídeo;áudio;"
+
+#: hala/servicemenus.py:50
+msgid "Hala wheel"
+msgstr "Roda do Hala"
+
+#: hala/servicemenus.py:50
+msgid "Open the shelf"
+msgstr "Abrir a prateleira"
+
+#: hala/servicemenus.py:50
+msgid "Open the wheel for copied files"
+msgstr "Abrir a roda para os arquivos copiados"
+
+#: hala/servicemenus.py:51
+msgid "Open the format wheel for the files last copied with Ctrl+C"
+msgstr "Abrir a roda de formatos para os últimos arquivos copiados com Ctrl+C"
+
+#: hala/tools/__init__.py:28
+msgid "number"
+msgstr "número"
+
+#: hala/tools/__init__.py:28
+msgid "time"
+msgstr "tempo"
+
+#: hala/tools/__init__.py:28
+msgid "whole number"
+msgstr "número inteiro"
+
+#: hala/tools/__init__.py:78
+msgid "{setting}: {value!r} isn't a valid {kind}"
+msgstr "{setting}: {value!r} não é um {kind} válido"
+
+#: hala/tools/__init__.py:82
+#, python-brace-format
+msgid "{setting}: pick one of {choices}"
+msgstr "{setting}: escolha um de {choices}"
+
+#: hala/tools/__init__.py:151
+#, python-brace-format
+msgid "{tool} needs at least {n} file"
+msgid_plural "{tool} needs at least {n} files"
+msgstr[0] "{tool} precisa de pelo menos {n} arquivo"
+msgstr[1] "{tool} precisa de pelo menos {n} arquivos"
+
+#: hala/tools/__init__.py:167
+#, python-brace-format
+msgid "{tool} doesn't work on {format} files"
+msgstr "{tool} não funciona com arquivos {format}"
+
+#: hala/tools/__init__.py:206
+msgid "no tool called {name!r} (there's {tools})"
+msgstr "não existe a ferramenta {name!r} (existem {tools})"
+
+#: hala/tools/compress.py:43
+msgid "Compress to"
+msgstr "Comprimir para"
+
+#: hala/tools/compress.py:43
+msgid "target size of each file"
+msgstr "tamanho de destino de cada arquivo"
+
+#: hala/tools/compress.py:45
+msgid "Allow a smaller format"
+msgstr "Permitir um formato menor"
+
+#: hala/tools/compress.py:46
+msgid ""
+"pictures may also become WebP and sound Opus when that's what fits (PNG, "
+"TIFF and BMP always become JPG, and lossless sound M4A)"
+msgstr ""
+"imagens também podem virar WebP e som Opus quando é isso que cabe (PNG, TIFF "
+"e BMP sempre viram JPG, e som sem perdas vira M4A)"
+
+#: hala/tools/compress.py:55
+msgid "the target size has to be above 0 MB"
+msgstr "o tamanho de destino precisa ser maior que 0 MB"
+
+#: hala/tools/compress.py:57
+#, python-brace-format
+msgid "{name} is already under {size:g} MB"
+msgstr "{name} já tem menos de {size:g} MB"
+
+#: hala/tools/compress.py:95
+msgid "couldn't get this image that small"
+msgstr "não foi possível deixar esta imagem tão pequena"
+
+#: hala/tools/compress.py:102
+msgid "it has no quality setting to lower"
+msgstr "ele não tem uma configuração de qualidade para baixar"
+
+#: hala/tools/compress.py:103 hala/tools/compress.py:269
+msgid "that's what fitted"
+msgstr "foi o que coube"
+
+#: hala/tools/compress.py:104 hala/tools/compress.py:271
+#, python-brace-format
+msgid "the compressed copy of {name} is {format} instead of {original} ({why})"
+msgstr "a cópia comprimida de {name} é {format} em vez de {original} ({why})"
+
+#: hala/tools/compress.py:107
+msgid "JPG has no transparency, so any transparent parts are white now"
+msgstr ""
+"JPG não tem transparência, então as partes transparentes agora são brancas"
+
+#: hala/tools/compress.py:150
+msgid "can't tell how long this video is"
+msgstr "não é possível saber a duração deste vídeo"
+
+#: hala/tools/compress.py:162
+#, python-brace-format
+msgid ""
+"too small for a {seconds:.0f} s video (the least that still looks like video "
+"is ~{smallest:.1f} MB)"
+msgstr ""
+"pequeno demais para um vídeo de {seconds:.0f} s (o mínimo que ainda parece "
+"vídeo é ~{smallest:.1f} MB)"
+
+#: hala/tools/compress.py:171
+#, python-brace-format
+msgid "couldn't get this video under {size:g} MB"
+msgstr "não foi possível deixar este vídeo abaixo de {size:g} MB"
+
+#: hala/tools/compress.py:180
+#, python-brace-format
+msgid "{n} subtitle track"
+msgid_plural "{n} subtitle tracks"
+msgstr[0] "{n} faixa de legenda"
+msgstr[1] "{n} faixas de legenda"
+
+#: hala/tools/compress.py:182
+#, python-brace-format
+msgid "{n} attachment or data stream"
+msgid_plural "{n} attachments or data streams"
+msgstr[0] "{n} anexo ou fluxo de dados"
+msgstr[1] "{n} anexos ou fluxos de dados"
+
+#: hala/tools/compress.py:185
+#, python-brace-format
+msgid "{n} more video stream"
+msgid_plural "{n} more video streams"
+msgstr[0] "mais {n} fluxo de vídeo"
+msgstr[1] "mais {n} fluxos de vídeo"
+
+#: hala/tools/compress.py:190
+#, python-brace-format
+msgid "the compressed copy of {name} is MP4 instead of {original}"
+msgstr "a cópia comprimida de {name} é MP4 em vez de {original}"
+
+#: hala/tools/compress.py:193
+#, python-brace-format
+msgid "left out: {streams} (only the first picture and sound are kept)"
+msgstr ""
+"ficou de fora: {streams} (só a primeira imagem e o primeiro som são mantidos)"
+
+#: hala/tools/compress.py:226
+msgid "can't tell how long this recording is"
+msgstr "não é possível saber a duração desta gravação"
+
+#: hala/tools/compress.py:248
+#, python-brace-format
+msgid "couldn't get this recording under {size:g} MB"
+msgstr "não foi possível deixar esta gravação abaixo de {size:g} MB"
+
+#: hala/tools/compress.py:253
+#, python-brace-format
+msgid ""
+"too small for {seconds:.0f} s of audio ({kbps} kb/s, about {size:.1f} MB, is "
+"the least that's still listenable)"
+msgstr ""
+"pequeno demais para {seconds:.0f} s de áudio ({kbps} kb/s, cerca de "
+"{size:.1f} MB, é o mínimo que ainda dá para ouvir)"
+
+#: hala/tools/compress.py:257
+msgid "(Allow a smaller format reaches 12 kb/s with Opus)"
+msgstr "(Permitir um formato menor chega a 12 kb/s com Opus)"
+
+#: hala/tools/compress.py:262
+#, python-brace-format
+msgid "{n} more sound track"
+msgid_plural "{n} more sound tracks"
+msgstr[0] "mais {n} faixa de som"
+msgstr[1] "mais {n} faixas de som"
+
+#: hala/tools/compress.py:270
+#, python-brace-format
+msgid "{format} can't trade quality for size"
+msgstr "{format} não consegue trocar qualidade por tamanho"
+
+#: hala/tools/compress.py:276
+#, python-brace-format
+msgid "left out: {streams}"
+msgstr "ficou de fora: {streams}"
+
+#: hala/tools/compress.py:314
+#, python-brace-format
+msgid "the smallest this PDF gets is {size:.1f} MB"
+msgstr "este PDF não fica menor que {size:.1f} MB"
+
+#: hala/tools/compress.py:319
+msgid "Compress"
+msgstr "Comprimir"
+
+#: hala/tools/compress.py:319
+msgid "Compressed"
+msgstr "Comprimido"
+
+#: hala/tools/compress.py:321
+msgid "compressed"
+msgstr "comprimido"
+
+#: hala/tools/compress.py:323
+msgid "make each file fit a size, e.g. for email attachments"
+msgstr "fazer cada arquivo caber em um tamanho, ex.: para anexos de e-mail"
+
+#: hala/tools/edit_media.py:43
+msgid "there's no sound in this file"
+msgstr "este arquivo não tem som"
+
+#: hala/tools/edit_media.py:61
+msgid "couldn't measure the loudness"
+msgstr "não foi possível medir a intensidade sonora"
+
+#: hala/tools/edit_media.py:64
+msgid "this recording is silent"
+msgstr "esta gravação está em silêncio"
+
+#: hala/tools/edit_media.py:101
+#, python-brace-format
+msgid "the start ({start}) has to be before the end ({end})"
+msgstr "o início ({start}) precisa ser antes do fim ({end})"
+
+#: hala/tools/edit_media.py:104
+msgid "nothing to trim: set a start, an end or remove silence"
+msgstr "nada para cortar: defina um início, um fim ou remova o silêncio"
+
+#: hala/tools/edit_media.py:140
+msgid "can't tell how long this file is"
+msgstr "não é possível saber a duração deste arquivo"
+
+#: hala/tools/edit_media.py:143
+#, python-brace-format
+msgid "the file is only {length} long"
+msgstr "o arquivo só tem {length}"
+
+#: hala/tools/edit_media.py:166
+#, python-brace-format
+msgid "{name} part {n}"
+msgstr "{name} parte {n}"
+
+#: hala/tools/edit_media.py:187
+msgid "join either videos or audio files, not both at once"
+msgstr "junte vídeos ou arquivos de áudio, não os dois ao mesmo tempo"
+
+#: hala/tools/edit_media.py:200
+msgid "can't join files with a line break in their name"
+msgstr "não é possível juntar arquivos com quebra de linha no nome"
+
+#: hala/tools/edit_media.py:247
+msgid "Loudness evened out"
+msgstr "Volume equalizado"
+
+#: hala/tools/edit_media.py:247
+msgid "Normalize"
+msgstr "Normalizar"
+
+#: hala/tools/edit_media.py:247
+msgid "Normalize audio"
+msgstr "Normalizar áudio"
+
+#: hala/tools/edit_media.py:249
+msgid "normalized"
+msgstr "normalizado"
+
+#: hala/tools/edit_media.py:250
+msgid "Loudness"
+msgstr "Intensidade sonora"
+
+#: hala/tools/edit_media.py:251
+msgid "target in LUFS: -14 streaming, -16 podcasts, -23 broadcast"
+msgstr "alvo em LUFS: -14 streaming, -16 podcasts, -23 transmissão"
+
+#: hala/tools/edit_media.py:253
+msgid "even out the volume to a standard loudness"
+msgstr "equalizar o volume em uma intensidade sonora padrão"
+
+#: hala/tools/edit_media.py:256
+msgid "Trim"
+msgstr "Cortar"
+
+#: hala/tools/edit_media.py:256
+msgid "Trimmed"
+msgstr "Cortado"
+
+#: hala/tools/edit_media.py:257
+msgid "trimmed"
+msgstr "cortado"
+
+#: hala/tools/edit_media.py:259
+msgid "Start"
+msgstr "Início"
+
+#: hala/tools/edit_media.py:259
+msgid "where to start, e.g. 0:05 or 1:02:03.5"
+msgstr "onde começar, ex.: 0:05 ou 1:02:03.5"
+
+#: hala/tools/edit_media.py:260
+msgid "End"
+msgstr "Fim"
+
+#: hala/tools/edit_media.py:260
+msgid "where to end (blank: the end of the file)"
+msgstr "onde terminar (em branco: o fim do arquivo)"
+
+#: hala/tools/edit_media.py:261 hala/tools/edit_media.py:275
+msgid "Frame-accurate"
+msgstr "Preciso no quadro"
+
+#: hala/tools/edit_media.py:262
+msgid "re-encode for an exact cut (off: instant, but cuts at a keyframe)"
+msgstr ""
+"recodificar para um corte exato (desligado: instantâneo, mas corta em um "
+"quadro-chave)"
+
+#: hala/tools/edit_media.py:264
+msgid "Remove silence"
+msgstr "Remover silêncio"
+
+#: hala/tools/edit_media.py:265
+msgid "also cut silence at the start and end"
+msgstr "cortar também o silêncio do início e do fim"
+
+#: hala/tools/edit_media.py:267
+msgid "keep only part of a recording or video"
+msgstr "manter só uma parte de uma gravação ou de um vídeo"
+
+#: hala/tools/edit_media.py:270 hala/tools/pdftools.py:127
+msgid "Split"
+msgstr "Dividir"
+
+#: hala/tools/edit_media.py:270
+msgid "Split into parts"
+msgstr "Dividido em partes"
+
+#: hala/tools/edit_media.py:271 hala/tools/pdftools.py:129
+msgid "split"
+msgstr "dividido"
+
+#: hala/tools/edit_media.py:273
+msgid "Parts"
+msgstr "Partes"
+
+#: hala/tools/edit_media.py:273
+msgid "how many equal parts"
+msgstr "quantas partes iguais"
+
+#: hala/tools/edit_media.py:274
+msgid "Or every"
+msgstr "Ou a cada"
+
+#: hala/tools/edit_media.py:274
+msgid "pieces this long instead, e.g. 10:00"
+msgstr "pedaços com esta duração, ex.: 10:00"
+
+#: hala/tools/edit_media.py:276
+msgid "re-encode for exact cuts (off: instant, but cuts at keyframes)"
+msgstr ""
+"recodificar para cortes exatos (desligado: instantâneo, mas corta em quadros-"
+"chave)"
+
+#: hala/tools/edit_media.py:279
+msgid "cut into equal parts or fixed-length pieces"
+msgstr "cortar em partes iguais ou em pedaços de duração fixa"
+
+#: hala/tools/edit_media.py:282
+msgid "Join"
+msgstr "Juntar"
+
+#: hala/tools/edit_media.py:282
+msgid "Joined"
+msgstr "Juntado"
+
+#: hala/tools/edit_media.py:284
+msgid "joined"
+msgstr "juntado"
+
+#: hala/tools/edit_media.py:285
+msgid "one video (or recording) from several, in the order given"
+msgstr "um vídeo (ou gravação) a partir de vários, na ordem informada"
+
+#: hala/tools/metadata.py:23
+msgid "everything"
+msgstr "tudo"
+
+#: hala/tools/metadata.py:23
+msgid "location"
+msgstr "localização"
+
+#: hala/tools/metadata.py:73
+msgid "nothing to change: pick what to remove or fill in a field"
+msgstr "nada para mudar: escolha o que remover ou preencha um campo"
+
+#: hala/tools/metadata.py:115
+msgid "no location"
+msgstr "sem localização"
+
+#: hala/tools/metadata.py:115
+msgid "no metadata"
+msgstr "sem metadados"
+
+#: hala/tools/metadata.py:116
+msgid "edited"
+msgstr "editado"
+
+#: hala/tools/metadata.py:124
+msgid "Metadata"
+msgstr "Metadados"
+
+#: hala/tools/metadata.py:124
+msgid "Metadata updated"
+msgstr "Metadados atualizados"
+
+#: hala/tools/metadata.py:128
+msgid "Remove"
+msgstr "Remover"
+
+#: hala/tools/metadata.py:128
+msgid "which metadata to strip"
+msgstr "quais metadados remover"
+
+#: hala/tools/metadata.py:130
+msgid "Title"
+msgstr "Título"
+
+#: hala/tools/metadata.py:130
+msgid "set the title (blank: keep)"
+msgstr "definir o título (em branco: manter)"
+
+#: hala/tools/metadata.py:132
+msgid "Author"
+msgstr "Autor"
+
+#: hala/tools/metadata.py:132
+msgid "set the author/artist (blank: keep)"
+msgstr "definir o autor/artista (em branco: manter)"
+
+#: hala/tools/metadata.py:134
+msgid "Comment"
+msgstr "Comentário"
+
+#: hala/tools/metadata.py:134
+msgid "set a comment (blank: keep)"
+msgstr "definir um comentário (em branco: manter)"
+
+#: hala/tools/metadata.py:137
+msgid "strip personal data (e.g. where a photo was taken) or set title/author"
+msgstr ""
+"remover dados pessoais (ex.: onde uma foto foi tirada) ou definir título/"
+"autor"
+
+#: hala/tools/pdftools.py:39
+msgid "qpdf didn't write a PDF"
+msgstr "o qpdf não gravou nenhum PDF"
+
+#: hala/tools/pdftools.py:45
+msgid "a PDF was damaged; qpdf repaired it, so check the result"
+msgstr "um PDF estava danificado; o qpdf o reparou, então confira o resultado"
+
+#: hala/tools/pdftools.py:60
+msgid "can't read the page range {range!r} (try 1-3, 5, 8-)"
+msgstr ""
+"não é possível entender o intervalo de páginas {range!r} (tente 1-3, 5, 8-)"
+
+#: hala/tools/pdftools.py:65
+#, python-brace-format
+msgid "pages {range} aren't in this {n}-page PDF"
+msgid_plural "pages {range} aren't in this {n}-page PDF"
+msgstr[0] "as páginas {range} não estão neste PDF de {n} página"
+msgstr[1] "as páginas {range} não estão neste PDF de {n} páginas"
+
+#: hala/tools/pdftools.py:79
+msgid "that's the whole PDF: nothing to split off"
+msgstr "esse é o PDF inteiro: nada para separar"
+
+#. Translators: "p" for page(s): "report p03.pdf", "report p05-08.pdf".
+#: hala/tools/pdftools.py:87
+#, python-brace-format
+msgid "{name} p{pages}"
+msgstr "{name} p{pages}"
+
+#: hala/tools/pdftools.py:99
+#, python-brace-format
+msgid "{name} isn't password-protected"
+msgstr "{name} não está protegido por senha"
+
+#: hala/tools/pdftools.py:102
+#, python-brace-format
+msgid "{name} needs its password to be unlocked"
+msgstr "{name} precisa da senha para ser desbloqueado"
+
+#: hala/tools/pdftools.py:115
+#, python-brace-format
+msgid "couldn't unlock {name}: {reason}"
+msgstr "não foi possível desbloquear {name}: {reason}"
+
+#: hala/tools/pdftools.py:121
+msgid "Merge"
+msgstr "Juntar"
+
+#: hala/tools/pdftools.py:121
+msgid "Merge PDF"
+msgstr "Juntar PDF"
+
+#: hala/tools/pdftools.py:121
+msgid "Merged into one PDF"
+msgstr "Juntado em um só PDF"
+
+#: hala/tools/pdftools.py:123
+msgid "merged"
+msgstr "juntado"
+
+#: hala/tools/pdftools.py:124
+msgid "one PDF from several PDFs and/or images, in the order given"
+msgstr "um PDF a partir de vários PDFs e/ou imagens, na ordem informada"
+
+#: hala/tools/pdftools.py:127
+msgid "PDF split"
+msgstr "PDF dividido"
+
+#: hala/tools/pdftools.py:127
+msgid "Split PDF"
+msgstr "Dividir PDF"
+
+#: hala/tools/pdftools.py:130
+msgid "Pages"
+msgstr "Páginas"
+
+#: hala/tools/pdftools.py:131
+msgid "ranges like 1-3, 5, 8- (blank: every page)"
+msgstr "intervalos como 1-3, 5, 8- (em branco: cada página)"
+
+#: hala/tools/pdftools.py:132
+msgid "separate PDFs for every page or for page ranges"
+msgstr "PDFs separados para cada página ou para intervalos de páginas"
+
+#: hala/tools/pdftools.py:135
+msgid "PDF unlocked"
+msgstr "PDF desbloqueado"
+
+#: hala/tools/pdftools.py:135
+msgid "Unlock"
+msgstr "Desbloquear"
+
+#: hala/tools/pdftools.py:135
+msgid "Unlock PDF"
+msgstr "Desbloquear PDF"
+
+#: hala/tools/pdftools.py:136
+msgid "unlocked"
+msgstr "desbloqueado"
+
+#: hala/tools/pdftools.py:139
+msgid "the PDF's password (blank if it opens without one)"
+msgstr "a senha do PDF (em branco se ele abre sem senha)"
+
+#: hala/tools/pdftools.py:140
+msgid "a copy without the password, or without limits on printing and copying"
+msgstr "uma cópia sem a senha, ou sem limites para imprimir e copiar"
+
+#: hala/tools/qr.py:38
+msgid "no QR code or barcode found"
+msgstr "nenhum código QR ou de barras encontrado"
+
+#: hala/tools/qr.py:45
+msgid "QR code read"
+msgstr "Código QR lido"
+
+#: hala/tools/qr.py:45
+msgid "Read QR"
+msgstr "Ler QR"
+
+#: hala/tools/qr.py:47
+msgid "codes"
+msgstr "códigos"
+
+#: hala/tools/qr.py:48
+msgid ""
+"decode QR codes and barcodes into a text file (also shown in the "
+"notification)"
+msgstr ""
+"decodificar códigos QR e de barras em um arquivo de texto (também mostrados "
+"na notificação)"
+
+#: hala/tools/zipping.py:72
+msgid "Archive"
+msgstr "Arquivo"
+
+#: hala/tools/zipping.py:76
+msgid "Zip"
+msgstr "Zip"
+
+#: hala/tools/zipping.py:76
+msgid "Zipped"
+msgstr "Zipado"
+
+#: hala/tools/zipping.py:78
+msgid "pack the files and folders into one .zip beside them"
+msgstr "empacotar os arquivos e pastas em um .zip ao lado deles"

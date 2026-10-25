@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .. import formats as f
 from .. import limits
+from ..i18n import N_, _
 from ..registry import ANY
 from ..runner import Context
 from . import Params, Tool
@@ -68,11 +69,11 @@ def pack(ctx: Context, inputs: list[Path], _params: Params) -> Path:
 
 
 def _name(inputs: list[Path]) -> str:
-    return f.stem_of(inputs[0]) if len(inputs) == 1 else "Archive"
+    return f.stem_of(inputs[0]) if len(inputs) == 1 else _("Archive")
 
 
 TOOL = Tool(
-    "zip", "Zip", done="Zipped", sources=frozenset({ANY}), engine=pack, combine=True,
+    "zip", N_("Zip"), done=N_("Zipped"), sources=frozenset({ANY}), engine=pack, combine=True,
     suffix=lambda p: "zip", icon="application-zip", hidden=True, output_name=_name,
-    tidy=tidy, help="pack the files and folders into one .zip beside them",
+    tidy=tidy, help=N_("pack the files and folders into one .zip beside them"),
 )

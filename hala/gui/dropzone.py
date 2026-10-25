@@ -31,8 +31,10 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
 from .. import SELF
-from ..servicemenus import exec_arg
+from ..i18n import N_, _
+from ..servicemenus import exec_arg, localize
 from . import layershell as ls
+from . import translate
 from .geometry import ACTION_PREFIX, TOOL_PREFIX
 from .overlay import Overlay, local_files
 
@@ -48,6 +50,8 @@ Exec="{exe}" dropzone --edge {edge}
 X-KDE-autostart-phase=2
 NoDisplay=true
 """
+# Translated into the autostart entry by servicemenus.localize().
+AUTOSTART_TEXT = (N_("Hala drop zone"), N_("Drag files to the screen edge to convert them"))
 
 
 def launch(target: str, files: list[Path]) -> None:
@@ -67,10 +71,10 @@ class Strip(QWidget):
     def __init__(self, screen: QScreen, overlay: Overlay, edge: str):
         super().__init__()
         self.overlay, self.edge, self.hot = overlay, edge, False
-        self.setWindowTitle("Hala drop zone")
+        self.setWindowTitle(_("Hala drop zone"))
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAcceptDrops(True)
-        self.setToolTip("Drag files here to convert them")
+        self.setToolTip(_("Drag files here to convert them"))
         self.resize(STRIP_WIDTH, STRIP_HEIGHT)
         self.winId()
         handle = self.windowHandle()
@@ -143,21 +147,21 @@ class DropZone:
 
     def _make_tray(self) -> QSystemTrayIcon:
         tray = QSystemTrayIcon(QIcon.fromTheme("hala"), self.app)
-        tray.setToolTip("Hala: drag files to the screen edge to convert them")
+        tray.setToolTip(_("Hala: drag files to the screen edge to convert them"))
         menu = QMenu()
-        toggle = QAction("Hide drop zone", menu)
+        toggle = QAction(_("Hide drop zone"), menu)
         toggle.triggered.connect(lambda: self._toggle(toggle))
         menu.addAction(toggle)
         # Through `hala action shelf`, not shelf.put(): that waits for a shelf to start (and
         # reports it if one doesn't), and the tray mustn't freeze meanwhile.
-        menu.addAction(QIcon.fromTheme("view-list-icons"), "Show shelf",
+        menu.addAction(QIcon.fromTheme("view-list-icons"), _("Show shelf"),
                        lambda: launch(ACTION_PREFIX + "shelf", []))
-        menu.addAction(QIcon.fromTheme("hala"), "Wheel for copied files",
+        menu.addAction(QIcon.fromTheme("hala"), _("Wheel for copied files"),
                        lambda: subprocess.Popen([*SELF, "wheel", "--clipboard"],
                                                 stdin=subprocess.DEVNULL,
                                                 start_new_session=True))
         menu.addSeparator()
-        menu.addAction("Quit", self.app.quit)
+        menu.addAction(_("Quit"), self.app.quit)
         tray.setContextMenu(menu)
         tray.show()
         self._menu = menu  # QSystemTrayIcon doesn't own it
@@ -167,7 +171,7 @@ class DropZone:
         visible = not self.pairs[0][0].isVisible() if self.pairs else True
         for strip, _overlay in self.pairs:
             strip.setVisible(visible)
-        action.setText("Hide drop zone" if visible else "Show drop zone")
+        action.setText(_("Hide drop zone") if visible else _("Show drop zone"))
 
 
 def _single_instance() -> IO[str] | None:
@@ -185,7 +189,7 @@ def _single_instance() -> IO[str] | None:
 def set_autostart(enabled: bool, exe: str, edge: str) -> Path:
     if enabled:
         AUTOSTART.parent.mkdir(parents=True, exist_ok=True)
-        AUTOSTART.write_text(AUTOSTART_ENTRY.format(exe=exec_arg(exe), edge=edge))
+        AUTOSTART.write_text(localize(AUTOSTART_ENTRY.format(exe=exec_arg(exe), edge=edge)))
     else:
         AUTOSTART.unlink(missing_ok=True)
     return AUTOSTART
@@ -198,13 +202,14 @@ ALREADY_RUNNING = 3
 def main(edge: str = "right") -> int:
     lock = _single_instance()
     if lock is None:
-        print("the drop zone is already running", file=sys.stderr)
+        print(_("the drop zone is already running"), file=sys.stderr)
         return ALREADY_RUNNING
     # HALA_DEBUG=1 also logs every hover change, for checking the wheel follows a drag.
     logging.basicConfig(filename=LOCK_FILE.parent / "dropzone.log", filemode="w",
                         format="%(asctime)s %(levelname)s %(message)s",
                         level=logging.DEBUG if os.environ.get("HALA_DEBUG") else logging.INFO)
     app = QApplication(sys.argv[:1])
+    translate.install(app)
     app.setApplicationName("hala")
     app.setDesktopFileName("hala")
     app.setQuitOnLastWindowClosed(False)

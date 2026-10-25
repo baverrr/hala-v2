@@ -432,7 +432,7 @@ def test_editor_window_pages_through_a_pdf(tmp_path: Path) -> None:
 
     src = _text_pdf(tmp_path / "two.pdf", ["ONE", "TWO"])
     window = Editor(src)
-    assert "crop" not in window.tool_actions  # a page keeps its size
+    assert "crop" in window.tool_actions  # a cropped page is saved at its new size
     assert window.page_label.text().strip() == "Page 1 of 2"
     window.go_to(1)
     assert window.page_label.text().strip() == "Page 2 of 2"

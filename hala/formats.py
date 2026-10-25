@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .i18n import NC_, pgettext
+
 # Multi-part suffixes that must win over their last component (".gz").
 COMPOUND_EXTS = ("tar.gz", "tar.bz2", "tar.xz", "tar.zst")
 ALIASES = {"jpeg": "jpg", "tif": "tiff", "heif": "heic", "aif": "aiff", "tgz": "tar.gz",
@@ -44,11 +46,16 @@ ARCHIVE_IN = frozenset({"zip", "7z", "rar", "tar", "gz", *COMPOUND_EXTS})
 PACK_OUT = ("zip", "tar.gz", "7z")
 
 # How targets are named in menus and on the wheel (default: the extension in capitals).
-LABELS = {FOLDER: "Folder (extract)", "tar.gz": "TAR.GZ", "txt": "Text"}
+LABELS = {FOLDER: NC_("format", "Folder (extract)"), "tar.gz": "TAR.GZ",
+          "txt": NC_("format", "Text")}
+
+
+def english_label(target: str) -> str:
+    return LABELS.get(target, target.upper())
 
 
 def label(target: str) -> str:
-    return LABELS.get(target, target.upper())
+    return pgettext("format", LABELS[target]) if target in LABELS else target.upper()
 
 
 # Format families: the Dolphin multi-file menus, and the tie-break when an extension's glob

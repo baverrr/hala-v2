@@ -28,10 +28,11 @@ them contain the **names and folders of files you converted**:
 | `~/.cache/hala/phone/` | Zips of folders you sent with **Phone**, kept while KDE Connect sends them; ones over a day old are deleted the next time you send a folder. |
 | `~/.cache/hala/*.lock`, and the shelf's socket in `/run/user/…` (or `~/.cache/hala/run/`) | Lock files, so only one drop zone and one shelf run at a time and two LibreOffice runs don't share a profile. |
 | `~/.config/autostart/hala-dropzone.desktop` | Only if you turned on `hala dropzone --autostart on`. |
+| `~/.config/hala/limits.conf` | Only if you changed a size limit with `hala limits set`: the limits you changed, nothing else. |
 | `.hala-…` folders beside your files | Scratch space while a job runs. They're removed when it finishes, or, if Hala was killed mid-job, by the next job in that folder once they're a day old. |
 
-To remove all of it, delete `~/.cache/hala` (and the autostart file, if you made one). Removing
-the app (`sudo apt remove hala`) doesn't delete your own converted files.
+To remove all of it, delete `~/.cache/hala` (and the autostart file and `~/.config/hala`, if
+you made them). Removing the app (`sudo apt remove hala`) doesn't delete your own converted files.
 
 ## Your files' metadata
 

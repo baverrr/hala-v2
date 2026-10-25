@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import zipfile
 from pathlib import Path
 
 import pytest
+
+# The tests check Hala's English text, whatever language this machine is in; `hala` processes
+# they start inherit it. test_i18n switches languages itself.
+os.environ["HALA_LANGUAGE"] = "C"
+
+from hala import i18n
+
+i18n.set_language("C")
 
 
 def sh(*cmd: str | Path) -> None:
@@ -17,6 +26,13 @@ SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60">
 <rect width="80" height="60" fill="#f80"/><circle cx="40" cy="30" r="20" fill="#fff"/></svg>"""
 SRT = "1\n00:00:00,000 --> 00:00:01,000\nHello\n\n2\n00:00:01,000 --> 00:00:02,000\nWorld\n"
 MARKDOWN = "# Title\n\nSome *text* and a list:\n\n- one\n- two\n"
+
+
+@pytest.fixture(autouse=True)
+def _own_config(tmp_path_factory: pytest.TempPathFactory,
+                monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the developer's own ~/.config/hala/limits.conf out of the tests."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path_factory.mktemp("config")))
 
 
 @pytest.fixture(scope="session")

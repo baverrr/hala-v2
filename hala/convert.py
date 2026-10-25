@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import formats as f
 from . import limits
+from .i18n import _
 from .registry import route_for, targets_for
 from .runner import Context, ConversionError
 
@@ -31,14 +32,15 @@ def convert_file(src: Path, dst_ext: str, *, outdir: Path | None = None,
     """Convert src to dst_ext next to it (or into outdir). Never overwrites; returns the result."""
     src = src.expanduser().resolve()
     if not src.exists():
-        raise ConversionError(f"{src} does not exist")
+        raise ConversionError(_("{path} does not exist").format(path=src))
     dst_ext = f.normalize_ext(dst_ext)
     src_ext = f.ext_of(src)
     route = route_for(src_ext, dst_ext)
     if route is None:
-        offered = ", ".join(targets_for(src_ext)) or "nothing"
-        raise ConversionError(f"can't convert {src_ext or 'this file'} to {dst_ext} "
-                              f"(it can become: {offered})")
+        offered = ", ".join(targets_for(src_ext)) or _("nothing")
+        raise ConversionError(_("can't convert {source} to {target} (it can become: {offered})")
+                              .format(source=src_ext or _("this file"), target=dst_ext,
+                                      offered=offered))
     return produce(src, lambda ctx: route.engine(ctx, src, dst_ext),
                    lambda produced: _final_name(src, dst_ext, produced),
                    outdir=outdir, on_progress=on_progress, cancel_event=cancel_event,
@@ -58,8 +60,8 @@ def produce(src: Path, work: Callable[[Context], Path], name: Callable[[Path], s
         # Scratch space on the same filesystem, so the final move is a rename, not a copy.
         workdir = Path(tempfile.mkdtemp(prefix=SCRATCH_PREFIX, dir=parent))
     except OSError as exc:
-        raise ConversionError(f"can't write to {parent}: {exc.strerror} "
-                              "(pick another folder with -o)") from None
+        raise ConversionError(_("can't write to {folder}: {reason} (pick another folder with -o)")
+                              .format(folder=parent, reason=exc.strerror)) from None
     _sweep_stale(parent)
     try:
         limits.check_free_space(parent, src.stat().st_size if src.is_file() else 0)
@@ -86,7 +88,7 @@ def _final_name(src: Path, dst_ext: str, produced: Path) -> str:
         # The archive's single top-level entry, or a folder named after the archive.
         return produced.name
     if produced.is_dir():
-        return f"{stem} ({dst_ext.upper()} pages)"
+        return _("{name} ({format} pages)").format(name=stem, format=dst_ext.upper())
     return f"{stem}.{dst_ext}"
 
 
@@ -133,8 +135,10 @@ def _place(produced: Path, parent: Path, name: str) -> Path:
             produced.unlink()
             return candidate
     except OSError as exc:
-        raise ConversionError(f"can't save the result in {parent}: {exc.strerror}") from None
-    raise ConversionError(f"too many existing copies of {name} in {parent}")
+        raise ConversionError(_("can't save the result in {folder}: {reason}")
+                              .format(folder=parent, reason=exc.strerror)) from None
+    raise ConversionError(_("too many existing copies of {name} in {folder}")
+                          .format(name=name, folder=parent))
 
 
 def _remove_tree(path: Path) -> None:

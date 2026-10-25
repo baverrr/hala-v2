@@ -32,9 +32,11 @@ from PySide6.QtGui import (
 )
 
 from . import formats as f
+from . import limits
 from .convert import _place
 from .engines import images, pdf
 from .engines.images import check_picture
+from .i18n import _
 from .limits import check_pixels
 from .runner import ConversionError
 
@@ -74,7 +76,8 @@ class Step:
 def load_image(path: Path) -> QImage:
     """The picture, upright (EXIF orientation applied), as ARGB. Formats Qt lacks go via vips."""
     check_picture(path)  # Qt's image plugins pick a decoder by content, like vips
-    QImageReader.setAllocationLimit(ALLOCATION_LIMIT_MB)
+    limits.refresh()  # (a raised max_megapixels raises Qt's cap with it: 4 bytes a pixel)
+    QImageReader.setAllocationLimit(max(ALLOCATION_LIMIT_MB, (limits.MAX_PIXELS * 4 >> 20) + 64))
     reader = QImageReader(str(path))
     if (size := reader.size()).isValid():  # from the header, before anything is decoded
         check_pixels(size.width(), size.height(), path.name)
@@ -83,7 +86,8 @@ def load_image(path: Path) -> QImage:
     if image.isNull():
         qt_error = reader.errorString()
         if reader.error() != QImageReader.ImageReaderError.UnsupportedFormatError:
-            raise ConversionError(f"can't open {path.name}: {qt_error}")
+            raise ConversionError(_("can't open {name}: {reason}").format(name=path.name,
+                                                                           reason=qt_error))
         image = _load_via_vips(path)
     return image.convertToFormat(QImage.Format.Format_ARGB32)
 
@@ -96,18 +100,22 @@ def _load_via_vips(path: Path) -> QImage:
                            capture_output=True, timeout=120)
             image = QImage(str(png))
     except FileNotFoundError:
-        raise ConversionError(f"can't open {path.name}: Qt can't read this format and vips "
-                              "isn't installed (apt install libvips-tools)") from None
+        raise ConversionError(_("can't open {name}: Qt can't read this format and vips isn't "
+                                "installed (apt install libvips-tools)").format(name=path.name)
+                              ) from None
     except subprocess.TimeoutExpired:
-        raise ConversionError(f"can't open {path.name}: reading it timed out") from None
+        raise ConversionError(_("can't open {name}: reading it timed out").format(name=path.name)
+                              ) from None
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or b"").decode(errors="replace").strip().splitlines()
-        raise ConversionError(f"can't open {path.name} as a picture"
+        raise ConversionError(_("can't open {name} as a picture").format(name=path.name)
                               + (f" ({detail[-1]})" if detail else "")) from None
     except OSError as exc:
-        raise ConversionError(f"can't open {path.name}: {exc.strerror}") from None
+        raise ConversionError(_("can't open {name}: {reason}").format(name=path.name,
+                                                                       reason=exc.strerror)
+                              ) from None
     if image.isNull():
-        raise ConversionError(f"can't open {path.name} as a picture")
+        raise ConversionError(_("can't open {name} as a picture").format(name=path.name))
     return image
 
 
@@ -319,15 +327,20 @@ def _pixels_only(image: QImage, ext: str) -> QImage:
     return fresh
 
 
+def edited_name(src: Path) -> str:
+    """The edited copy's name without its extension: "photo (edited)"."""
+    return _("{name} (edited)").format(name=f.stem_of(src))
+
+
 def save_copy(image: QImage, src: Path, *, dest: Path | None = None) -> Path:
     """Write the edit as "name (edited).ext" beside the original (or as dest), never
     overwriting anything: a taken name becomes "name (2).ext". dest's extension is the format."""
     ext = f.ext_of(dest) if dest else output_ext(src)
     if ext not in save_exts():
-        raise ConversionError(f"can't save as {ext or 'a file without an extension'}; "
-                              f"pick one of {', '.join(save_exts())}")
+        raise ConversionError(_("can't save as {format}; pick one of {formats}").format(
+            format=ext or _("a file without an extension"), formats=", ".join(save_exts())))
     parent = dest.parent if dest else src.parent
-    name = dest.name if dest else f"{f.stem_of(src)} (edited).{ext}"
+    name = dest.name if dest else f"{edited_name(src)}.{ext}"
     pixels = _pixels_only(image, ext)
     try:
         with tempfile.TemporaryDirectory(prefix=".hala-edit-", dir=parent) as tmp:
@@ -336,11 +349,12 @@ def save_copy(image: QImage, src: Path, *, dest: Path | None = None) -> Path:
             if ext in ("jpg", "webp", "avif", "heic"):
                 writer.setQuality(JPEG_QUALITY)
             if not writer.write(pixels) or not scratch.exists():
-                raise ConversionError(f"couldn't write a {ext.upper()} file: "
-                                      f"{writer.errorString()}")
+                raise ConversionError(_("couldn't write a {format} file: {reason}").format(
+                    format=ext.upper(), reason=writer.errorString()))
             return _place(scratch, parent, name)
     except OSError as exc:
-        raise ConversionError(f"can't save in {parent}: {exc.strerror or exc}") from None
+        raise ConversionError(_("can't save in {folder}: {reason}").format(
+            folder=parent, reason=exc.strerror or exc)) from None
 
 
 # --- PDFs -----------------------------------------------------------------------------------
@@ -355,7 +369,8 @@ class PdfPages:
     """A PDF opened for editing: each page becomes a Document the first time it's shown.
 
     Saving (save_pdf_copy) flattens only the pages that were edited into pictures, so text
-    under a redaction is really gone from them; the rest are kept exactly as they were.
+    under a redaction (or outside a crop) is really gone from them; pages that were only
+    rotated are turned without being redrawn, and the rest are kept exactly as they were.
     """
 
     def __init__(self, path: Path, password: str | None = None):
@@ -377,21 +392,23 @@ class PdfPages:
 
     def _unlock(self, password: str | None) -> Path:
         if password is None:
-            raise pdf.PasswordNeeded(f"{self.path.name} is password-protected")
+            raise pdf.PasswordNeeded(_("{name} is password-protected").format(
+                name=self.path.name))
         out = Path(self._tmp.name) / "unlocked.pdf"
         try:
             result = subprocess.run(pdf.unlock_command(self.path, out), input=password,
                                     capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
         except FileNotFoundError:
-            raise ConversionError("opening a password-protected PDF needs qpdf "
-                                  "(apt install qpdf)") from None
+            raise ConversionError(_("opening a password-protected PDF needs qpdf "
+                                    "(apt install qpdf)")) from None
         except subprocess.TimeoutExpired:
-            raise ConversionError(f"unlocking {self.path.name} took too long") from None
+            raise ConversionError(_("unlocking {name} took too long").format(
+                name=self.path.name)) from None
         if pdf.wrong_password(result.stderr):
-            raise pdf.WrongPassword(f"wrong password for {self.path.name}")
+            raise pdf.WrongPassword(_("wrong password for {name}").format(name=self.path.name))
         if result.returncode not in (0, 3) or not out.exists():
             detail = result.stderr.strip().splitlines()
-            raise ConversionError(f"couldn't unlock {self.path.name}"
+            raise ConversionError(_("couldn't unlock {name}").format(name=self.path.name)
                                   + (f" ({detail[-1]})" if detail else ""))
         return out
 
@@ -417,11 +434,22 @@ class PdfPages:
             del self._docs[index]
 
     def edited_pages(self) -> list[int]:
-        return sorted(i for i, doc in self._docs.items() if doc.edited)
+        """Pages that differ from the original (turned right round counts as not)."""
+        return sorted(i for i, doc in self._docs.items()
+                      if doc.edited and rotation_only(doc) != 0)
+
+    def flattened_pages(self) -> list[int]:
+        """The edited pages that saving turns into pictures: all but the ones only rotated."""
+        return [i for i in self.edited_pages() if rotation_only(self._docs[i]) is None]
+
+    def rotated_pages(self) -> dict[int, int]:
+        """Pages only rotated (not otherwise edited): their turn, in degrees clockwise."""
+        turns = {i: rotation_only(self._docs[i]) for i in self.edited_pages()}
+        return {i: t for i, t in turns.items() if t}
 
     @property
     def edited(self) -> bool:
-        return any(doc.edited for doc in self._docs.values())
+        return bool(self.edited_pages())
 
     @property
     def modified(self) -> bool:
@@ -433,6 +461,26 @@ class PdfPages:
 
     def close(self) -> None:
         self._tmp.cleanup()
+
+
+def rotation_only(doc: Document) -> int | None:
+    """The page's total turn (0, 90, 180 or 270) if rotating is all that was done to it, so it
+    can be turned in the PDF itself, keeping its text; None if it must be redrawn."""
+    if not all(step.kind == "rotate" for step in doc.steps):
+        return None
+    return sum(step.amount for step in doc.steps) % 360
+
+
+def _flat_size(doc: Document, size: tuple[float, float]) -> tuple[float, float]:
+    """The page size (points) for a flattened page: the original's exactly, unless a crop,
+    rotation or flip changed the picture's shape, then the new shape at the same scale."""
+    image, base = doc.render(), doc.base
+    if image.size() == base.size():
+        return size
+    if image.size() == base.size().transposed():  # turned a quarter: the same page, sideways
+        return size[1], size[0]
+    scale = size[0] / base.width()
+    return image.width() * scale, image.height() * scale
 
 
 def _page_pdf(image: QImage, size: tuple[float, float]) -> bytes:
@@ -447,16 +495,18 @@ def _page_pdf(image: QImage, size: tuple[float, float]) -> bytes:
 
 def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
     """Write "name (edited).pdf" beside the original (or dest), never overwriting: edited pages
-    flattened to pictures, the others as they were. It's built from an empty PDF, so the
+    flattened to pictures (at their new size if cropped), pages only rotated turned without
+    redrawing them, the others as they were. It's built from an empty PDF, so the
     original's document metadata, bookmarks and attached files don't come along, nor its
     password: a protected PDF's edited copy opens without one. Untouched pages keep their
     links, annotations and form fields (with their values)."""
     src = pages.source
     if dest is not None and f.ext_of(dest) != "pdf":
-        raise ConversionError("a PDF can only be saved as a PDF")
+        raise ConversionError(_("a PDF can only be saved as a PDF"))
     parent = dest.parent if dest else pages.path.parent
-    name = dest.name if dest else f"{f.stem_of(pages.path)} (edited).pdf"
-    edited = set(pages.edited_pages())
+    name = dest.name if dest else f"{edited_name(pages.path)}.pdf"
+    edited = set(pages.flattened_pages())
+    rotate = [f"--rotate=+{turn}:{i + 1}" for i, turn in pages.rotated_pages().items()]
     try:
         with tempfile.TemporaryDirectory(prefix=".hala-edit-", dir=parent) as tmp:
             spec: list[str] = []
@@ -464,7 +514,8 @@ def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
             while i < pages.count:
                 if i in edited:
                     flat = Path(tmp) / f"page{i + 1}.pdf"
-                    flat.write_bytes(_page_pdf(pages.page(i).render(), pages.sizes[i]))
+                    doc = pages.page(i)
+                    flat.write_bytes(_page_pdf(doc.render(), _flat_size(doc, pages.sizes[i])))
                     spec += [str(flat), "1"]
                     i += 1
                     continue
@@ -474,18 +525,20 @@ def save_pdf_copy(pages: PdfPages, *, dest: Path | None = None) -> Path:
                 spec += [str(src), f"{start + 1}-{i}"]
             out = Path(tmp) / "out.pdf"
             try:
-                result = subprocess.run(["qpdf", "--empty", "--pages", *spec, "--", str(out)],
+                result = subprocess.run(["qpdf", "--empty", "--pages", *spec, "--", *rotate,
+                                         str(out)],
                                         capture_output=True, text=True, timeout=PDF_TIMEOUT_S)
             except FileNotFoundError as exc:
                 if exc.filename not in ("qpdf", None):
                     raise
-                raise ConversionError("saving a PDF needs qpdf (apt install qpdf)") from None
+                raise ConversionError(_("saving a PDF needs qpdf (apt install qpdf)")) from None
             if result.returncode not in (0, 3) or not out.exists():  # 3: warnings only
                 detail = result.stderr.strip().splitlines()
-                raise ConversionError("couldn't write the PDF"
+                raise ConversionError(_("couldn't write the PDF")
                                       + (f" ({detail[-1]})" if detail else ""))
             return _place(out, parent, name)
     except subprocess.TimeoutExpired:
-        raise ConversionError("writing the PDF took too long") from None
+        raise ConversionError(_("writing the PDF took too long")) from None
     except OSError as exc:
-        raise ConversionError(f"can't save in {parent}: {exc.strerror or exc}") from None
+        raise ConversionError(_("can't save in {folder}: {reason}").format(
+            folder=parent, reason=exc.strerror or exc)) from None

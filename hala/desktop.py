@@ -24,13 +24,18 @@ import gi
 
 gi.require_version("Gio", "2.0")
 gi.require_version("GLibUnix", "2.0")
-from gi.repository import Gio, GLib, GLibUnix  # noqa: E402  # pyright: ignore[reportAttributeAccessIssue]
+from gi.repository import (  # noqa: E402  # pyright: ignore[reportAttributeAccessIssue]
+    Gio,
+    GLib,
+    GLibUnix,
+)
 
 from . import formats as f  # noqa: E402
+from .i18n import _, n_files, ngettext  # noqa: E402
 from .jobs import DEFAULT_WORKERS, Job, JobQueue, Status, clean_note  # noqa: E402
 from .registry import common_targets, route_for  # noqa: E402
 from .runner import ConversionError  # noqa: E402
-from .tools import Tool, tool  # noqa: E402
+from .tools import Tool, needs_files, tool  # noqa: E402
 
 APP_ID = "hala"
 JOB_SERVER = ("org.kde.JobViewServer", "/JobViewServer", "org.kde.JobViewServerV2")
@@ -106,14 +111,16 @@ class Batch:
             for path in self.files:
                 ext = f.ext_of(path)
                 if ext == self.target:
-                    self.skipped.append(f"{path.name} is already {self.target.upper()}")
+                    self.skipped.append(_("{name} is already {format}").format(
+                        name=path.name, format=self.target.upper()))
                 elif route_for(ext, self.target) is None:
-                    self.skipped.append(f"{path.name} can't become {self.target.upper()}")
+                    self.skipped.append(_("{name} can't become {format}").format(
+                        name=path.name, format=self.target.upper()))
                 else:
                     self.jobs.append(self.queue.submit(path, self.target)[0])
         if not self.jobs:
             log.warning("nothing to convert: %s", "; ".join(self.skipped))
-            self._notify("Nothing to convert", "\n".join(self.skipped), "dialog-information",
+            self._notify(_("Nothing to convert"), "\n".join(self.skipped), "dialog-information",
                          problem=True)
             self._wait_for_notification()
             return 1
@@ -122,34 +129,34 @@ class Batch:
         for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
             GLibUnix.signal_add(GLib.PRIORITY_HIGH, sig, self._on_signal)
         count = len(self.jobs)
-        doing = (f"{self.tool.label}: {len(self.files)} file{'s' * (len(self.files) != 1)}"
-                 if self.tool else
-                 f"Converting {count} file{'s' * (count != 1)} to {self.target.upper()}")
+        doing = (f"{_(self.tool.label)}: {n_files(len(self.files))}" if self.tool else
+                 ngettext("Converting {n} file to {format}", "Converting {n} files to {format}",
+                          count).format(n=count, format=self.target.upper()))
         self.view.call("setInfoMessage", "s", doing)
+        # "files" is the unit's id for Plasma (it names it itself), not text.
         self.view.call("setTotalAmount", "ts", count, "files")
-        self.view.call("setDescriptionField", "uss", 0, "File", self.jobs[0].src.name)
+        self.view.call("setDescriptionField", "uss", 0, _("File"), self.jobs[0].src.name)
         self.loop.run()
         return 0 if all(j.status is Status.DONE for j in self.jobs) and not self.skipped else 1
 
     def _submit_tool(self, tool: Tool) -> None:
         if tool.combine:
             usable = [p for p in self.files if tool.accepts([p, p])]
-            self.skipped += [f"{p.name}: {tool.label} doesn't take {f.ext_of(p) or 'these'} files"
-                             for p in self.files if p not in usable]
+            self.skipped += [_doesnt_take(p, tool) for p in self.files if p not in usable]
             if len(usable) >= tool.min_files:
                 self.jobs.append(self.queue.submit_tool(tool.name, usable, self.params)[0])
             elif usable:
-                self.skipped.append(f"{tool.label} needs at least {tool.min_files} files")
+                self.skipped.append(needs_files(tool))
             return
         for path in self.files:
             if tool.accepts([path]):
                 self.jobs.append(self.queue.submit_tool(tool.name, [path], self.params)[0])
             else:
-                self.skipped.append(f"{path.name}: {tool.label} doesn't take "
-                                    f"{f.ext_of(path) or 'these'} files")
+                self.skipped.append(_doesnt_take(path, tool))
 
     def _title(self) -> str:
-        return self.tool.done if self.tool else f"Converted to {self.target.upper()}"
+        return (_(self.tool.done) if self.tool
+                else _("Converted to {format}").format(format=self.target.upper()))
 
     def _on_signal(self) -> bool:
         self._cancel_all()
@@ -168,7 +175,7 @@ class Batch:
         if job.status is Status.RUNNING:
             if now - self.last_update < 0.25:
                 return False  # throttle: ffmpeg reports progress many times a second
-            self.view.call("setDescriptionField", "uss", 0, "File", job.src.name)
+            self.view.call("setDescriptionField", "uss", 0, _("File"), job.src.name)
         self.last_update = now
         overall = sum(1.0 if j in finished else j.progress for j in self.jobs) / len(self.jobs)
         self.view.call("setPercent", "u", int(overall * 100))
@@ -188,12 +195,12 @@ class Batch:
             self.view.call("terminate", "s", "")
             self._notify_success(done)
         elif cancelled and not failed and not done and not self.skipped:
-            self.view.call("terminate", "s", "Cancelled")
+            self.view.call("terminate", "s", _("Cancelled"))
             self.loop.quit()
             return
         else:
             # The notification below carries the details.
-            self.view.call("terminate", "s", "Cancelled" if cancelled else "")
+            self.view.call("terminate", "s", _("Cancelled") if cancelled else "")
             self._notify_problems(done, failed, cancelled)
         self._wait_for_notification()
 
@@ -202,16 +209,17 @@ class Batch:
         self.copy_text = ""
         if len(outputs) == 1:
             body = _esc(outputs[0].name)
-            actions = ["open", "Open", "show", "Show in folder"]
+            actions = ["open", _("Open"), "show", _("Show in folder")]
             if self.tool is not None and self.tool.shows_text and outputs[0].is_file():
                 # Short results (QR codes) are the point: show them, and offer to copy them.
                 self.copy_text = outputs[0].read_text(errors="replace").strip()
                 body = _esc(self.copy_text[:TEXT_PREVIEW]).replace("\n", "<br>")
-                actions = ["copy", "Copy", *actions]
+                actions = ["copy", _("Copy"), *actions]
         else:
             folder = _common_folder(outputs).name
-            body = f"{len(outputs)} files in {_esc(folder)}"
-            actions = ["show", "Show in folder"]
+            body = _("{files} in {folder}").format(files=n_files(len(outputs)),
+                                                    folder=_esc(folder))
+            actions = ["show", _("Show in folder")]
         body += "".join(f"<br>{line}" for line in _note_lines(done))
         self.outputs = outputs
         self._notify(self._title(), body, "hala", actions)
@@ -226,17 +234,19 @@ class Batch:
         # Notes about results that did work (pictures left out...) still matter.
         lines += _note_lines(done)
         if cancelled:
-            lines.append("The rest were cancelled.")
+            lines.append(_("The rest were cancelled."))
         total = len(self.jobs) + len(self.skipped)
         if self.tool is not None:
-            summary = (f"{self.tool.done}: {len(done)} of {total}" if done
-                       else f"{self.tool.label} didn't work")
+            summary = (_("{done}: {n} of {total}").format(done=_(self.tool.done), n=len(done),
+                                                         total=total) if done
+                       else _("{tool} didn't work").format(tool=_(self.tool.label)))
         else:
-            summary = (f"{len(done)} of {total} converted to {self.target.upper()}" if done
-                       else f"Couldn't convert to {self.target.upper()}")
-        actions = ["show", "Show in folder"] if self.outputs else []
+            summary = (_("{n} of {total} converted to {format}").format(
+                n=len(done), total=total, format=self.target.upper()) if done
+                else _("Couldn't convert to {format}").format(format=self.target.upper()))
+        actions = ["show", _("Show in folder")] if self.outputs else []
         if failed:
-            actions += ["details", "Details"]
+            actions += ["details", _("Details")]
         self._notify(summary, "<br>".join(lines), "dialog-warning", actions, problem=True)
 
     def _notify(self, summary: str, body: str, icon: str,
@@ -330,7 +340,8 @@ def _note_lines(done: list[Job], shown: int = 3) -> list[str]:
         log.info("note: %s", note)
     lines = [f"<i>{_esc(clean_note(n))}</i>" for n in notes[:shown]]
     if len(notes) > shown:
-        lines.append(f"<i>…and {len(notes) - shown} more (see {LOG_FILE.name})</i>")
+        lines.append("<i>" + _("…and {n} more (see {log})").format(
+            n=len(notes) - shown, log=LOG_FILE.name) + "</i>")
     return lines
 
 
@@ -354,7 +365,7 @@ def _error_detail(text: str | None) -> str:
 
     ConversionError texts look like "ffmpeg failed:\\n<stderr tail>"; the heading is skipped.
     """
-    lines = [ln.strip() for ln in (text or "failed").splitlines() if ln.strip()] or ["failed"]
+    lines = [ln.strip() for ln in (text or _("failed")).splitlines() if ln.strip()] or [_("failed")]
     body = lines[1:] if len(lines) > 1 else lines
     specific = [ln for ln in body if not ln.startswith(GENERIC_ERRORS)]
     return (specific or body)[-1]
@@ -394,14 +405,16 @@ def notify(summary: str, body: str, icon: str = "hala", outputs: list[Path] | No
 def _describe(files: list[Path]) -> int:
     """No target given: say what the files can become (the app entry's "Open with")."""
     targets = [t.upper() for t in common_targets([f.ext_of(p) for p in files])]
-    body = (f"Can become: {', '.join(targets)}.<br>Right-click → Convert to in Dolphin."
-            if targets else "Hala can't convert these files.")
+    body = (_("Can become: {formats}.").format(formats=", ".join(targets)) + "<br>"
+            + _("Right-click → Convert to in Dolphin.")
+            if targets else _("Hala can't convert these files."))
     notify("Hala", body)
     return 0 if targets else 1
 
 
-def _plural(count: int, word: str = "file") -> str:
-    return f"{count} {word}{'s' * (count != 1)}"
+def _doesnt_take(path: Path, tool: Tool) -> str:
+    return _("{name}: {tool} doesn't take {format} files").format(
+        name=path.name, tool=_(tool.label), format=f.ext_of(path) or _("these"))
 
 
 def run_action(name: str, files: list[Path], folder: Path | None = None,
@@ -414,7 +427,7 @@ def run_action(name: str, files: list[Path], folder: Path | None = None,
     files = [Path(os.path.abspath(p.expanduser())) for p in files]
     log.info("action %s on %d file(s)", name, len(files))
     if name != "shelf" and not files:
-        raise ConversionError(f"{name} needs at least one file")
+        raise ConversionError(_("{action} needs at least one file").format(action=name))
     if name == "zip":
         return run(files, None, tool_name="zip", ask=False)
     if name == "shelf":
@@ -425,13 +438,14 @@ def run_action(name: str, files: list[Path], folder: Path | None = None,
         if folder is None:
             from .gui.pickers import pick_folder
 
-            folder = pick_folder("Copy to" if name == "copy" else "Move to", files)
+            folder = pick_folder(_(actions.ACTIONS[name].label), files)
             if folder is None:
                 return 1
         return _copy_or_move(name, files, folder)
     if name == "phone":
         return _send_to_phone(files, device)
-    raise ConversionError(f"no action called {name!r} (there's {', '.join(actions.ACTIONS)})")
+    raise ConversionError(_("no action called {name!r} (there's {actions})").format(
+        name=name, actions=", ".join(actions.ACTIONS)))
 
 
 def _copy_or_move(name: str, files: list[Path], folder: Path) -> int:
@@ -450,15 +464,25 @@ def _copy_or_move(name: str, files: list[Path], folder: Path) -> int:
         except ConversionError as exc:
             problems.append(f"<b>{_esc(path.name)}</b>: {_esc(str(exc))}")
             log.error("%s %s: %s", name, path, exc)
-    verb = "Copied" if name == "copy" else "Moved"
+    copying = name == "copy"
     if problems:
-        summary = (f"{verb} {len(done)} of {_plural(len(files))}" if done
-                   else f"Couldn't {name} {'it' if len(files) == 1 else 'them'}")
+        if done:
+            summary = (ngettext("Copied {n} of {total} file", "Copied {n} of {total} files",
+                                len(files)) if copying else
+                       ngettext("Moved {n} of {total} file", "Moved {n} of {total} files",
+                                len(files))).format(n=len(done), total=len(files))
+        else:
+            summary = (ngettext("Couldn't copy it", "Couldn't copy them", len(files)) if copying
+                       else ngettext("Couldn't move it", "Couldn't move them", len(files)))
         notify(summary, "<br>".join(problems[:6]), "dialog-warning", done,
-               ["show", "Show in folder"] if done else [], problem=True)
+               ["show", _("Show in folder")] if done else [], problem=True)
         return 1
-    body = _esc(done[0].name) if len(done) == 1 else f"{_plural(len(done))} in {_esc(folder.name)}"
-    notify(f"{verb} to {folder.name}", body, "hala", done, ["show", "Show in folder"])
+    body = (_esc(done[0].name) if len(done) == 1
+            else _("{files} in {folder}").format(files=n_files(len(done)),
+                                                 folder=_esc(folder.name)))
+    summary = (_("Copied to {folder}") if copying else _("Moved to {folder}")).format(
+        folder=folder.name)
+    notify(summary, body, "hala", done, ["show", _("Show in folder")])
     return 0
 
 
@@ -468,13 +492,15 @@ def _send_to_phone(files: list[Path], device: str | None) -> int:
     try:
         found = phones()
     except ConversionError as exc:
-        notify("Can't send to a phone", _esc(str(exc)), "dialog-warning", problem=True)
+        notify(_("Can't send to a phone"), _esc(str(exc)), "dialog-warning", problem=True)
         return 1
     if device is None:
         if not found:
-            app = ["kdeconnect", "Open KDE Connect"] if shutil.which("kdeconnect-app") else []
-            notify("No phone connected", "Pair a phone in KDE Connect and make sure it's on "
-                   "the same network.", "dialog-warning", actions=app, problem=True)
+            app = (["kdeconnect", _("Open KDE Connect")] if shutil.which("kdeconnect-app")
+                   else [])
+            notify(_("No phone connected"), _("Pair a phone in KDE Connect and make sure it's "
+                                              "on the same network."),
+                   "dialog-warning", actions=app, problem=True)
             return 1
         if len(found) == 1:
             device = found[0][0]
@@ -491,13 +517,15 @@ def _send_to_phone(files: list[Path], device: str | None) -> int:
     sending = len(files) - len(refused)
     if refused:
         lines = [f"<b>{_esc(p.name)}</b>: {_esc(r)}" for p, r in refused[:6]]
-        summary = (f"Sending {sending} of {_plural(len(files))} to {name}" if sending
-                   else f"Couldn't send to {name}")
+        summary = (ngettext("Sending {n} of {total} file to {device}",
+                            "Sending {n} of {total} files to {device}", len(files)).format(
+                       n=sending, total=len(files), device=name) if sending
+                   else _("Couldn't send to {device}").format(device=name))
         notify(summary, "<br>".join(lines), "dialog-warning", problem=True)
         return 1
-    what = files[0].name if len(files) == 1 else _plural(len(files))
+    what = files[0].name if len(files) == 1 else n_files(len(files))
     # KDE Connect has only queued them; it shows the transfer itself.
-    notify(f"Sending to {name}", _esc(what), "kdeconnect")
+    notify(_("Sending to {device}").format(device=name), _esc(what), "kdeconnect")
     return 0
 
 

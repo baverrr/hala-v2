@@ -50,7 +50,9 @@ from PySide6.QtWidgets import (
 )
 
 from .. import SELF
+from ..i18n import _, ngettext
 from . import layershell as ls
+from . import translate
 from .preview import human_size, total_size
 
 RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR") or Path.home() / ".cache" / "hala" / "run")
@@ -115,7 +117,7 @@ def put(files: list[Path]) -> int:
         proc = subprocess.Popen([*SELF, "shelf", *map(str, files)],
                                 stdin=subprocess.DEVNULL, start_new_session=True)
     except OSError as exc:
-        notify("Couldn't open the shelf", str(exc), "dialog-warning", problem=True)
+        notify(_("Couldn't open the shelf"), str(exc), "dialog-warning", problem=True)
         return 1
     deadline = time.monotonic() + START_WAIT_S
     while time.monotonic() < deadline:
@@ -127,8 +129,8 @@ def put(files: list[Path]) -> int:
         if send([]):  # listening: it already holds the files from its command line
             return 0
         time.sleep(0.1)
-    notify("Couldn't open the shelf", f"It didn't start. Details: {LOG}", "dialog-warning",
-           problem=True)
+    notify(_("Couldn't open the shelf"), _("It didn't start. Details: {log}").format(log=LOG),
+           "dialog-warning", problem=True)
     return 1
 
 
@@ -194,10 +196,10 @@ class ShelfList(QListWidget):
         menu.addAction(QIcon.fromTheme("document-open"), "Open",
                        lambda: [QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
                                 for p in chosen])
-        menu.addAction(QIcon.fromTheme("folder-open"), "Show in folder",
+        menu.addAction(QIcon.fromTheme("folder-open"), _("Show in folder"),
                        lambda: show_in_folder(chosen))
         menu.addSeparator()
-        menu.addAction(QIcon.fromTheme("list-remove"), "Remove from shelf",
+        menu.addAction(QIcon.fromTheme("list-remove"), _("Remove from shelf"),
                        lambda: self.shelf.remove(chosen))
         menu.exec(self.viewport().mapToGlobal(pos))
 
@@ -209,7 +211,7 @@ class DragAll(QToolButton):
         super().__init__()
         self.shelf = shelf
         self.setIcon(QIcon.fromTheme("transform-move"))
-        self.setToolTip("Drag all the files")
+        self.setToolTip(_("Drag all the files"))
         self.setAutoRaise(True)
         self._pressed: QPoint | None = None
 
@@ -231,7 +233,7 @@ class DragAll(QToolButton):
 class Shelf(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Hala shelf")
+        self.setWindowTitle(_("Hala shelf"))
         self.setWindowIcon(QIcon.fromTheme("hala"))
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAcceptDrops(True)
@@ -245,8 +247,8 @@ class Shelf(QWidget):
         header.addWidget(self.title, 1)
         self.drag_all = DragAll(self)
         header.addWidget(self.drag_all)
-        for icon, tip, slot in (("edit-clear-all", "Clear the shelf", self.clear),
-                                ("window-close", "Close the shelf", self.close)):
+        for icon, tip, slot in (("edit-clear-all", _("Clear the shelf"), self.clear),
+                                ("window-close", _("Close the shelf"), self.close)):
             button = QToolButton()
             button.setIcon(QIcon.fromTheme(icon))
             button.setToolTip(tip)
@@ -256,7 +258,7 @@ class Shelf(QWidget):
         layout.addLayout(header)
         self.list = ShelfList(self)
         layout.addWidget(self.list)
-        self.hint = QLabel("Drop files here to hold them,\nthen drag them anywhere.")
+        self.hint = QLabel(_("Drop files here to hold them,\nthen drag them anywhere."))
         self.hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hint.setEnabled(False)
         layout.addWidget(self.hint)
@@ -334,8 +336,8 @@ class Shelf(QWidget):
         count = len(files)
         size = total_size(files) if files else None
         detail = f" · {human_size(size)}" if size is not None else ""
-        self.title.setText("<b>Shelf</b>" + (f" · {count} item{'s' * (count != 1)}{detail}"
-                                              if count else ""))
+        items = ngettext("{n} item", "{n} items", count).format(n=count)
+        self.title.setText(f"<b>{_('Shelf')}</b>" + (f" · {items}{detail}" if count else ""))
         self.list.setVisible(bool(count))
         self.hint.setVisible(not count)
         self.drag_all.setEnabled(bool(count))
@@ -455,7 +457,7 @@ class Server:
 
     def _accept(self) -> None:
         try:
-            conn, _ = self.sock.accept()
+            conn, _addr = self.sock.accept()
         except BlockingIOError:
             return
         except OSError as exc:
@@ -509,10 +511,11 @@ def main(files: list[Path]) -> int:
             time.sleep(0.1)
             if send(files):
                 return 0
-        raise ConversionError("the shelf is starting but isn't answering; try again")
+        raise ConversionError(_("the shelf is starting but isn't answering; try again"))
     sock = listen()
     app = QApplication.instance() or QApplication(sys.argv[:1])
     assert isinstance(app, QApplication)
+    translate.install(app)
     app.setApplicationName("hala")
     app.setDesktopFileName("hala")
     shelf = Shelf()

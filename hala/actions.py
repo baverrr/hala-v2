@@ -21,6 +21,7 @@ from pathlib import Path
 
 from . import formats as f
 from .convert import produce
+from .i18n import N_, _
 from .runner import Context, ConversionError
 
 KDECONNECT = "kdeconnect-cli"
@@ -37,7 +38,7 @@ class PartialMove(ConversionError):
 @dataclass(frozen=True)
 class Action:
     name: str  # "zip"; the wheel's target is "action:zip"
-    label: str
+    label: str  # English, marked with N_(): shown through _()
     icon: str
     files_only: bool = False  # KDE Connect can't share folders
     # Zip only for several items: one item already has the wheel's ZIP format petal.
@@ -49,11 +50,11 @@ class Action:
 
 
 ACTIONS: dict[str, Action] = {a.name: a for a in (
-    Action("shelf", "Shelf", "view-list-icons"),
-    Action("phone", "Phone", "kdeconnect"),  # folders are zipped first
-    Action("copy", "Copy to", "edit-copy"),
-    Action("move", "Move to", "go-jump"),
-    Action("zip", "Zip all", "application-zip", min_count=2),
+    Action("shelf", N_("Shelf"), "view-list-icons"),
+    Action("phone", N_("Phone"), "kdeconnect"),  # folders are zipped first
+    Action("copy", N_("Copy to"), "edit-copy"),
+    Action("move", N_("Move to"), "go-jump"),
+    Action("zip", N_("Zip all"), "application-zip", min_count=2),
 )}
 
 
@@ -72,7 +73,8 @@ def _why(exc: OSError) -> str:
     if isinstance(exc, shutil.Error) and exc.args and isinstance(exc.args[0], list):
         problems = exc.args[0]  # copytree: [(src, dst, reason), ...]
         first = problems[0][2] if problems and len(problems[0]) == 3 else str(exc)
-        more = f" (and {len(problems) - 1} more)" if len(problems) > 1 else ""
+        more = (" " + _("(and {n} more)").format(n=len(problems) - 1)
+                if len(problems) > 1 else "")
         return f"{first}{more}"
     return exc.strerror or str(exc)
 
@@ -80,7 +82,7 @@ def _why(exc: OSError) -> str:
 def copy_to(src: Path, folder: Path) -> Path:
     """Copy a file, folder or link into folder, never overwriting; returns where it went."""
     if not os.path.lexists(src):
-        raise ConversionError(f"{src.name} no longer exists")
+        raise ConversionError(_("{name} no longer exists").format(name=src.name))
     _refuse_into_itself(src, folder)
 
     def work(ctx: Context) -> Path:
@@ -96,13 +98,14 @@ def copy_to(src: Path, folder: Path) -> Path:
     try:
         return produce(src, work, lambda produced: produced.name, outdir=folder)
     except OSError as exc:  # copying (disk full, unreadable file); placement reports its own
-        raise ConversionError(f"couldn't copy {src.name}: {_why(exc)}") from None
+        raise ConversionError(_("couldn't copy {name}: {reason}")
+                              .format(name=src.name, reason=_why(exc))) from None
 
 
 def move_to(src: Path, folder: Path) -> Path:
     """Move a file, folder or link into folder, never overwriting; returns where it went."""
     if not os.path.lexists(src):
-        raise ConversionError(f"{src.name} no longer exists")
+        raise ConversionError(_("{name} no longer exists").format(name=src.name))
     folder = folder.expanduser().resolve()
     if src.parent.resolve() == folder:
         return src  # already there
@@ -111,13 +114,15 @@ def move_to(src: Path, folder: Path) -> Path:
         folder.mkdir(parents=True, exist_ok=True)
         same_disk = src.lstat().st_dev == folder.stat().st_dev
     except OSError as exc:
-        raise ConversionError(f"can't move into {folder}: {_why(exc)}") from None
+        raise ConversionError(_("can't move into {folder}: {reason}")
+                              .format(folder=folder, reason=_why(exc))) from None
     if same_disk:
         try:
             return _rename_into(src, folder)
         except OSError as exc:
             if exc.errno != errno.EXDEV:  # bind mounts: same disk, but no renames across
-                raise ConversionError(f"couldn't move {src.name}: {_why(exc)}") from None
+                raise ConversionError(_("couldn't move {name}: {reason}")
+                                      .format(name=src.name, reason=_why(exc))) from None
     placed = copy_to(src, folder)
     try:
         if _is_folder(src):
@@ -125,8 +130,10 @@ def move_to(src: Path, folder: Path) -> Path:
         else:
             src.unlink()
     except OSError as exc:
-        raise PartialMove(f"copied to {folder.name}, but the original couldn't be removed "
-                          f"({_why(exc)}){' - it may be partly deleted' * _is_folder(src)}",
+        message = (_("copied to {folder}, but the original couldn't be removed ({reason}) - "
+                     "it may be partly deleted") if _is_folder(src)
+                   else _("copied to {folder}, but the original couldn't be removed ({reason})"))
+        raise PartialMove(message.format(folder=folder.name, reason=_why(exc)),
                           placed) from None
     return placed
 
@@ -135,7 +142,8 @@ def _free_names(folder: Path, name: str, is_dir: bool) -> Iterator[Path]:
     stem, ext = (name, "") if is_dir else f.split_name(name)
     for n in range(1, 1000):
         yield folder / (f"{stem}{ext}" if n == 1 else f"{stem} ({n}){ext}")
-    raise ConversionError(f"too many existing copies of {name} in {folder}")
+    raise ConversionError(_("too many existing copies of {name} in {folder}")
+                          .format(name=name, folder=folder))
 
 
 def _rename_into(src: Path, folder: Path) -> Path:
@@ -176,15 +184,16 @@ def _rename_into(src: Path, folder: Path) -> Path:
         try:
             src.unlink()
         except OSError as exc:
-            raise PartialMove(f"linked into {folder.name}, but couldn't remove the original "
-                              f"from {src.parent} ({_why(exc)})", candidate) from None
+            raise PartialMove(_("linked into {folder}, but couldn't remove the original from "
+                                "{source} ({reason})").format(
+                folder=folder.name, source=src.parent, reason=_why(exc)), candidate) from None
         return candidate
     raise AssertionError("unreachable")  # _free_names raises when it runs out
 
 
 def _refuse_into_itself(src: Path, folder: Path) -> None:
     if _is_folder(src) and folder.resolve().is_relative_to(src.resolve()):
-        raise ConversionError(f"can't put {src.name} inside itself")
+        raise ConversionError(_("can't put {name} inside itself").format(name=src.name))
 
 
 # --- KDE Connect ----------------------------------------------------------------------------
@@ -192,18 +201,20 @@ def _refuse_into_itself(src: Path, folder: Path) -> None:
 
 def _kdeconnect(*args: str, timeout: float) -> str:
     if shutil.which(KDECONNECT) is None:
-        raise ConversionError("KDE Connect isn't installed (apt install kdeconnect)")
+        raise ConversionError(_("KDE Connect isn't installed (apt install kdeconnect)"))
     try:
         return subprocess.run([KDECONNECT, *args], capture_output=True, text=True,
                               timeout=timeout, check=True).stdout
     except subprocess.TimeoutExpired:
-        raise ConversionError(f"KDE Connect didn't respond in {timeout:.0f} s "
-                              "(is kdeconnectd running?)") from None
+        raise ConversionError(_("KDE Connect didn't respond in {seconds:.0f} s (is kdeconnectd "
+                                "running?)").format(seconds=timeout)) from None
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or "").strip().splitlines()
-        raise ConversionError(detail[-1] if detail else f"exit code {exc.returncode}") from None
+        raise ConversionError(detail[-1] if detail
+                              else _("exit code {code}").format(code=exc.returncode)) from None
     except OSError as exc:
-        raise ConversionError(f"couldn't run {KDECONNECT}: {_why(exc)}") from None
+        raise ConversionError(_("couldn't run {program}: {reason}")
+                              .format(program=KDECONNECT, reason=_why(exc))) from None
 
 
 def phones() -> list[tuple[str, str]]:
@@ -211,7 +222,7 @@ def phones() -> list[tuple[str, str]]:
     out = _kdeconnect("--list-available", "--id-name-only", timeout=10)
     found = []
     for line in out.splitlines():
-        device_id, _, name = line.strip().partition(" ")
+        device_id, _sep, name = line.strip().partition(" ")
         if device_id:
             found.append((device_id, name or device_id))
     return found
@@ -232,7 +243,7 @@ def send_to_phone(files: Sequence[Path], device_id: str) -> list[tuple[Path, str
         try:
             send = _zip_for_phone(path) if path.is_dir() else path
             if not send.is_file():
-                raise ConversionError("only files and folders can be sent")
+                raise ConversionError(_("only files and folders can be sent"))
             _kdeconnect("--device", device_id, "--share", os.fspath(send), timeout=30)
         except ConversionError as exc:
             refused.append((path, str(exc)))
@@ -245,7 +256,8 @@ def _zip_for_phone(folder: Path) -> Path:
     try:
         PHONE_ZIPS.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        raise ConversionError(f"can't make {PHONE_ZIPS}: {exc.strerror}") from exc
+        raise ConversionError(_("can't make {folder}: {reason}")
+                              .format(folder=PHONE_ZIPS, reason=exc.strerror)) from exc
     cutoff = time.time() - PHONE_ZIP_DAYS * 86400
     for old in PHONE_ZIPS.glob("*.zip"):
         try:

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .. import limits
 from ..formats import ARCHIVE_IN, ext_of, stem_of
+from ..i18n import _
 from ..runner import Context, ConversionError
 
 TARS = frozenset({"tar", "tar.gz", "tar.bz2", "tar.xz"})
@@ -33,6 +34,7 @@ def extract(ctx: Context, src: Path, dst_ext: str) -> Path:
     src_ext = ext_of(src)
     size = src.stat().st_size
     # Read once: the running totals below are compared with the space there was at the start.
+    limits.refresh()  # once per archive: check_unpacked runs per member
     free = limits.free_or_none(dest)
     if src_ext in TARS:
         try:
@@ -40,9 +42,11 @@ def extract(ctx: Context, src: Path, dst_ext: str) -> Path:
                 # "data" rejects absolute paths, "..", devices and links leaving dest.
                 tar.extractall(dest, members=_checking(ctx, tar, size, free), filter="data")
         except tarfile.FilterError as exc:
-            raise ConversionError(f"unsafe entry in archive: {exc}") from None
+            raise ConversionError(_("unsafe entry in archive: {reason}").format(reason=exc)
+                                  ) from None
         except (tarfile.TarError, EOFError, OSError, zlib.error) as exc:
-            raise ConversionError(f"can't read this archive: {exc}") from None
+            raise ConversionError(_("can't read this archive: {reason}").format(reason=exc)
+                                  ) from None
     elif src_ext == "tar.zst":
         listing = ctx.run(["tar", "--zstd", "-tvf", src])
         sizes = [int(f[2]) for line in listing.splitlines()
@@ -61,7 +65,8 @@ def extract(ctx: Context, src: Path, dst_ext: str) -> Path:
                     limits.check_unpacked(written, 1, size, free)
                     fout.write(chunk)
         except (OSError, EOFError, zlib.error) as exc:
-            raise ConversionError(f"can't read this archive: {exc}") from None
+            raise ConversionError(_("can't read this archive: {reason}").format(reason=exc)
+                                  ) from None
     else:
         kind, total, entries = _listed_7z(ctx, src, src_ext)
         limits.check_unpacked(total, entries, size, free)
@@ -71,7 +76,7 @@ def extract(ctx: Context, src: Path, dst_ext: str) -> Path:
         _check_links(dest)
     entries = list(dest.iterdir())
     if not entries:
-        raise ConversionError("the archive is empty")
+        raise ConversionError(_("the archive is empty"))
     return entries[0] if len(entries) == 1 else dest
 
 
@@ -130,8 +135,9 @@ def _capped(ctx: Context, cmd: list[str | Path], dest: Path, size: int,
 
 
 def _too_big(cap: int) -> ConversionError:
-    return ConversionError(f"the archive would unpack to more than {limits.human(cap)}, "
-                           "more than its listing said; refusing it as a likely zip bomb")
+    return ConversionError(_("the archive would unpack to more than {size}, more than its "
+                             "listing said; refusing it as a likely zip bomb").format(
+        size=limits.human(cap)) + limits.raise_hint("max_unpack_ratio"))
 
 
 def _unpacked_size(dest: Path) -> int:
@@ -149,8 +155,9 @@ def _listed_7z(ctx: Context, src: Path, ext: str) -> tuple[str, int, int]:
              if line.startswith("Type = ")]
     kind = kinds[-1] if kinds else ""
     if not sep or kind not in TYPES_7Z.get(ext, {ext}):
-        found = f"a {kind} file" if kind else "not a readable archive"
-        raise ConversionError(f"{src.name} is {found}, not a .{ext} archive; refusing it")
+        message = (_("{name} is a {kind} file, not a .{ext} archive; refusing it") if kind
+                   else _("{name} is not a readable archive, not a .{ext} archive; refusing it"))
+        raise ConversionError(message.format(name=src.name, kind=kind, ext=ext))
     total = entries = 0
     for block in body.split("\n\n"):
         fields = dict(line.split(" = ", 1) for line in block.splitlines() if " = " in line)
@@ -158,11 +165,12 @@ def _listed_7z(ctx: Context, src: Path, ext: str) -> tuple[str, int, int]:
             continue
         entries += 1
         if not fields.get("Size", "").strip().isdigit():
-            raise ConversionError(f"{src.name} doesn't list the size of "
-                                  f"{fields['Path']!r}; refusing it as a likely zip bomb")
+            raise ConversionError(_("{name} doesn't list the size of {entry!r}; refusing it "
+                                    "as a likely zip bomb").format(name=src.name,
+                                                                   entry=fields["Path"]))
         total += int(fields["Size"])
     if not entries:
-        raise ConversionError("the archive is empty")
+        raise ConversionError(_("the archive is empty"))
     return kind, total, entries
 
 
@@ -171,4 +179,5 @@ def _check_links(dest: Path) -> None:
     root = dest.resolve()
     for path in dest.rglob("*"):
         if path.is_symlink() and not path.resolve().is_relative_to(root):
-            raise ConversionError(f"unsafe link in archive: {path.relative_to(dest)}")
+            raise ConversionError(_("unsafe link in archive: {entry}").format(
+                entry=path.relative_to(dest)))

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .. import formats as f
 from ..engines import images, media, pdf
+from ..i18n import N_, _, ngettext
 from ..runner import Cancelled, Context, ConversionError
 from . import Param, Params, Tool, pdftools
 
@@ -39,11 +40,11 @@ def _half_size_mb(files: list[Path]) -> float:
     return max(0.1, round(largest / 2 / 1e6, 1))
 
 
-SIZE = Param("size", "Compress to", "float", 10.0, "target size of each file", unit="MB",
-             suggest=_half_size_mb)
-OTHER_FORMAT = Param("reformat", "Allow a smaller format", "bool", False,
-                     "pictures may also become WebP and sound Opus when that's what fits "
-                     "(PNG, TIFF and BMP always become JPG, and lossless sound M4A)",
+SIZE = Param("size", N_("Compress to"), "float", 10.0, N_("target size of each file"),
+             unit=N_("MB"), suggest=_half_size_mb)
+OTHER_FORMAT = Param("reformat", N_("Allow a smaller format"), "bool", False,
+                     N_("pictures may also become WebP and sound Opus when that's what fits "
+                        "(PNG, TIFF and BMP always become JPG, and lossless sound M4A)"),
                      only_for=frozenset({*f.IMAGE_IN, *f.AUDIO_IN}))
 
 
@@ -51,9 +52,10 @@ def compress(ctx: Context, inputs: list[Path], params: Params) -> Path:
     src = inputs[0]
     target = int(params["size"] * 1e6)
     if target <= 0:
-        raise ConversionError("the target size has to be above 0 MB")
+        raise ConversionError(_("the target size has to be above 0 MB"))
     if src.stat().st_size <= target:
-        raise ConversionError(f"{src.name} is already under {params['size']:g} MB")
+        raise ConversionError(_("{name} is already under {size:g} MB")
+                              .format(name=src.name, size=params["size"]))
     other = bool(params.get("reformat"))
     ext = f.ext_of(src)
     if ext in f.IMAGE_IN:
@@ -90,20 +92,20 @@ def _image(ctx: Context, src: Path, target: int, other: bool) -> Path:
         if (found := _best_quality(ctx, scaled, fmt, "true", target)) is not None:
             return _image_note(ctx, src, found)
         ctx.progress(min(0.9, 0.4 + 0.1 * attempt))
-    raise ConversionError("couldn't get this image that small")
+    raise ConversionError(_("couldn't get this image that small"))
 
 
 def _image_note(ctx: Context, src: Path, out: Path) -> Path:
     """Say so when the compressed copy is another kind of picture than the original."""
     ext, out_ext = f.ext_of(src), f.ext_of(out)
     if out_ext != ext:
-        why = ("it has no quality setting to lower" if out_ext == "jpg"
-               else "that's what fitted")
-        lost = ""
+        why = (_("it has no quality setting to lower") if out_ext == "jpg"
+               else _("that's what fitted"))
+        note = _("the compressed copy of {name} is {format} instead of {original} ({why})").format(
+            name=src.name, format=out_ext.upper(), original=ext.upper(), why=why)
         if out_ext == "jpg" and _has_alpha(ctx, src):
-            lost = "; JPG has no transparency, so any transparent parts are white now"
-        ctx.note(f"the compressed copy of {src.name} is {out_ext.upper()} instead of "
-                 f"{ext.upper()} ({why}){lost}")
+            note += "; " + _("JPG has no transparency, so any transparent parts are white now")
+        ctx.note(note)
     return out
 
 
@@ -145,7 +147,7 @@ def _video(ctx: Context, src: Path, target: int) -> Path:
     info = media.probe(ctx, src)
     duration = media._duration(info)
     if duration <= 0:
-        raise ConversionError("can't tell how long this video is")
+        raise ConversionError(_("can't tell how long this video is"))
     streams = info.get("streams", [])
     kinds = [s.get("codec_type") for s in streams]
     has_audio = "audio" in kinds
@@ -157,35 +159,39 @@ def _video(ctx: Context, src: Path, target: int) -> Path:
     for attempt in range(ENCODE_TRIES):
         if video_kbps < MIN_VIDEO_KBPS:
             smallest = (MIN_VIDEO_KBPS + audio[0]) * 1000 * duration / 8 / HEADROOM / 1e6
-            raise ConversionError(f"too small for a {duration:.0f} s video (the least that "
-                                  f"still looks like video is ~{smallest:.1f} MB)")
+            raise ConversionError(_("too small for a {seconds:.0f} s video (the least that "
+                                    "still looks like video is ~{smallest:.1f} MB)")
+                                  .format(seconds=duration, smallest=smallest))
         _encode_video(ctx, src, out, video_kbps, audio, duration, attempt)
         size = out.stat().st_size
         if size <= target:
             _video_note(ctx, src, kinds)
             return out
         video_kbps = int(video_kbps * target / size * 0.95)  # overshot: aim lower and redo
-    raise ConversionError(f"couldn't get this video under {target / 1e6:g} MB")
+    raise ConversionError(_("couldn't get this video under {size:g} MB").format(size=target / 1e6))
 
 
 def _video_note(ctx: Context, src: Path, kinds: list[str | None]) -> None:
     """Say what the MP4 doesn't have that the original did."""
     left = []
     if (extra := kinds.count("audio") - 1) > 0:
-        left.append(f"{extra} more sound track{'s' * (extra > 1)}")
+        left.append(_more_sound(extra))
     if subs := kinds.count("subtitle"):
-        left.append(f"{subs} subtitle track{'s' * (subs > 1)}")
+        left.append(ngettext("{n} subtitle track", "{n} subtitle tracks", subs).format(n=subs))
     if others := sum(1 for k in kinds if k in ("attachment", "data")):
-        left.append(f"{others} attachment{'s' * (others > 1)} or data stream{'s' * (others > 1)}")
+        left.append(ngettext("{n} attachment or data stream", "{n} attachments or data streams",
+                             others).format(n=others))
     if (extra_video := kinds.count("video") - 1) > 0:
-        left.append(f"{extra_video} more video stream{'s' * (extra_video > 1)}")
+        left.append(ngettext("{n} more video stream", "{n} more video streams",
+                             extra_video).format(n=extra_video))
     ext = f.ext_of(src)
     parts = []
     if ext != "mp4":
-        parts.append(f"the compressed copy of {src.name} is MP4 instead of {ext.upper()}")
+        parts.append(_("the compressed copy of {name} is MP4 instead of {original}")
+                     .format(name=src.name, original=ext.upper()))
     if left:
-        parts.append("left out: " + ", ".join(left) + " (only the first picture and sound "
-                     "are kept)")
+        parts.append(_("left out: {streams} (only the first picture and sound are kept)")
+                     .format(streams=", ".join(left)))
     if parts:
         ctx.note("; ".join(parts))
 
@@ -217,7 +223,7 @@ def _audio(ctx: Context, src: Path, target: int, other: bool) -> Path:
     info = media.probe(ctx, src)
     duration = media._duration(info)
     if duration <= 0:
-        raise ConversionError("can't tell how long this recording is")
+        raise ConversionError(_("can't tell how long this recording is"))
     kbps = int(target * 8 * HEADROOM / duration / 1000)
     ext = f.ext_of(src)
     out_ext = ext if ext in LOSSY_AUDIO else "m4a"
@@ -239,27 +245,35 @@ def _audio(ctx: Context, src: Path, target: int, other: bool) -> Path:
         kbps = int(kbps * target / size * 0.95)  # a variable-rate codec overshot
         if kbps < floor:
             raise _audio_too_small(duration, floor, other)
-    raise ConversionError(f"couldn't get this recording under {target / 1e6:g} MB")
+    raise ConversionError(_("couldn't get this recording under {size:g} MB")
+                          .format(size=target / 1e6))
 
 
 def _audio_too_small(duration: float, floor: int, other: bool) -> ConversionError:
-    hint = "" if other else "; Allow a smaller format reaches 12 kb/s with Opus"
-    return ConversionError(f"too small for {duration:.0f} s of audio ({floor} kb/s, about "
-                           f"{floor * 1000 * duration / 8 / 1e6:.1f} MB, is the least that's "
-                           f"still listenable{hint})")
+    message = _("too small for {seconds:.0f} s of audio ({kbps} kb/s, about {size:.1f} MB, is "
+                "the least that's still listenable)").format(
+        seconds=duration, kbps=floor, size=floor * 1000 * duration / 8 / 1e6)
+    if not other:
+        message += " " + _("(Allow a smaller format reaches 12 kb/s with Opus)")
+    return ConversionError(message)
+
+
+def _more_sound(n: int) -> str:
+    return ngettext("{n} more sound track", "{n} more sound tracks", n).format(n=n)
 
 
 def _audio_note(ctx: Context, src: Path, out: Path, info: dict) -> None:
     ext, out_ext = f.ext_of(src), f.ext_of(out)
     parts = []
     if out_ext != ext:
-        why = ("that's what fitted" if out_ext == "opus"
-               else f"{ext.upper()} can't trade quality for size")
-        parts.append(f"the compressed copy of {src.name} is {out_ext.upper()} instead of "
-                     f"{ext.upper()} ({why})")
+        why = (_("that's what fitted") if out_ext == "opus"
+               else _("{format} can't trade quality for size").format(format=ext.upper()))
+        parts.append(_("the compressed copy of {name} is {format} instead of {original} ({why})")
+                     .format(name=src.name, format=out_ext.upper(), original=ext.upper(),
+                             why=why))
     extra = sum(1 for s in info.get("streams", []) if s.get("codec_type") == "audio") - 1
     if extra > 0:
-        parts.append(f"left out: {extra} more sound track{'s' * (extra > 1)}")
+        parts.append(_("left out: {streams}").format(streams=_more_sound(extra)))
     if parts:
         ctx.note("; ".join(parts))
 
@@ -297,13 +311,14 @@ def _pdf(ctx: Context, src: Path, target: int) -> Path:
         if size <= target:
             return out
         smallest = min(smallest, size)
-    raise ConversionError(f"the smallest this PDF gets is {smallest / 1e6:.1f} MB")
+    raise ConversionError(_("the smallest this PDF gets is {size:.1f} MB")
+                          .format(size=smallest / 1e6))
 
 
 TOOL = Tool(
-    "compress", "Compress", done="Compressed",
+    "compress", N_("Compress"), done=N_("Compressed"),
     sources=frozenset({*f.IMAGE_IN - {"svg", "gif"}, *f.VIDEO_IN, *f.AUDIO_IN, "pdf"}),
-    engine=compress, suffix=lambda p: "compressed", params=(SIZE, OTHER_FORMAT),
+    engine=compress, suffix=lambda p: _("compressed"), params=(SIZE, OTHER_FORMAT),
     icon="archive-insert",
-    help="make each file fit a size, e.g. for email attachments",
+    help=N_("make each file fit a size, e.g. for email attachments"),
 )

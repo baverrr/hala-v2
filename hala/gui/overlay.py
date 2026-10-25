@@ -37,6 +37,7 @@ from PySide6.QtWidgets import QWidget
 
 from .. import formats as f
 from ..actions import ACTIONS, actions_for
+from ..i18n import _, n_files
 from ..registry import common_targets
 from ..tools import tools, tools_for
 from . import layershell as ls
@@ -235,7 +236,7 @@ class Overlay(QWidget):
             return
         self._shadow(p, wheel)
         if not self.files:
-            self._centre(p, wheel, "Only local files can be used")
+            self._centre(p, wheel, _("Only local files can be used"))
             return
         # A muted accent (e.g. Breeze's greyish lavender) must still stand out against red,
         # so the hovered petal is also brightened, outlined and popped out.
@@ -268,7 +269,7 @@ class Overlay(QWidget):
         self._tool_ring(p, wheel, accent)
         self._bubbles(p, wheel, accent)
         count = len(self.files)
-        self._centre(p, wheel, self.files[0].name if count == 1 else f"{count} files")
+        self._centre(p, wheel, self.files[0].name if count == 1 else n_files(count))
 
     def _tool_ring(self, p: QPainter, wheel: Wheel, accent: QColor) -> None:
         """Tool petals between the white middle and the formats: frosted white, red labels."""
@@ -287,7 +288,7 @@ class Overlay(QWidget):
             mid = (wheel.inner + wheel.split) / 2
             x, y = wheel.point_at(seg.middle, mid)
             t = registry[seg.target.removeprefix(TOOL_PREFIX)]
-            self._label(p, x, y, t.short or t.label, font,
+            self._label(p, x, y, _(t.short or t.label), font,
                         QColor("white") if hot else PETAL.darker(115),
                         _room(seg, mid, wheel.split - wheel.inner))
 
@@ -298,6 +299,7 @@ class Overlay(QWidget):
         font.setWeight(QFont.Weight.DemiBold)
         for target, x, y in wheel.bubbles:
             action = ACTIONS[target.removeprefix(ACTION_PREFIX)]
+            label = _(action.label)
             hot = target == self.hovered
             radius = BUBBLE_RADIUS + (4.0 if hot else 0.0)
             p.setBrush(accent if hot else TOOL_PETAL)
@@ -310,13 +312,13 @@ class Overlay(QWidget):
                 p.setFont(font)
                 p.setPen(QColor("white") if hot else PETAL)
                 p.drawText(QRectF(x - radius, y - radius, 2 * radius, 2 * radius),
-                           Qt.AlignmentFlag.AlignCenter, action.label[:1])
+                           Qt.AlignmentFlag.AlignCenter, label[:1])
             else:
                 p.drawPixmap(int(x - side / 2), int(y - side / 2), icon.pixmap(side, side))
             # The label sits on the desktop, not on a petal: give it a red pill to stand on.
             p.setFont(font)
             metrics = QFontMetricsF(font)
-            width = metrics.horizontalAdvance(action.label) + 14
+            width = metrics.horizontalAdvance(label) + 14
             tall = metrics.height() + 6
             # On the side away from the ring, so it never covers a petal.
             top = y - radius - 5 - tall if wheel.actions_above else y + radius + 5
@@ -325,7 +327,7 @@ class Overlay(QWidget):
             p.setBrush(accent if hot else PETAL)
             p.drawRoundedRect(pill, pill.height() / 2, pill.height() / 2)
             p.setPen(QColor("white"))
-            p.drawText(pill, Qt.AlignmentFlag.AlignCenter, action.label)
+            p.drawText(pill, Qt.AlignmentFlag.AlignCenter, label)
 
     @staticmethod
     def _label(p: QPainter, x: float, y: float, text: str, font: QFont, colour: QColor,
