@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/baverrr/hala-v2/actions/workflows/codeql.yml"><img src="https://github.com/baverrr/hala-v2/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
 </p>
 
 A local file converter for Linux desktops, made on KDE Plasma. Drag files to the edge of the screen, pick a format on
@@ -57,6 +58,7 @@ Hala is named after the hala fruit (*Pandanus tectorius*), which grows across th
 - [Safety](#safety)
 - [Known limitations](#known-limitations)
 - [Development](#development)
+- [License](#license)
 - [Privacy and terms](#privacy-and-terms)
 
 ## Features
@@ -507,6 +509,12 @@ python3 tools/i18n.py new it       # start a new language, hala/locale/it.po
 python3 tools/i18n.py check        # every .po is valid and keeps its {placeholders}
 python3 tools/i18n.py stats        # how much of each language is done
 ```
+
+## License
+
+Hala is released under the [MIT License](LICENSE), copyright 2026 baverrr: use it, change it and
+share it, as long as the copyright notice and license text come along. The programs it drives
+(ffmpeg, libvips, LibreOffice and the rest) keep their own licenses.
 
 ## Privacy and terms
 
