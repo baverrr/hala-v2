@@ -121,7 +121,9 @@ def stage(root: Path, version: str = __version__) -> None:
     (doc / "copyright").write_text(
         "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/\n"
         "Upstream-Name: hala\n\nFiles: *\nCopyright: 2026 baverrr\n"
-        "License: proprietary\n All rights reserved.\n")
+        "License: Expat\n"
+        + "".join(f" {line}\n" if line else " .\n"
+                  for line in (ROOT / "LICENSE").read_text().splitlines()[4:]))
     with gzip.open(doc / "changelog.gz", "wt") as log:
         log.write(f"hala ({version}) unstable; urgency=medium\n\n"
                   "  * Packaged as a desktop application.\n\n"
