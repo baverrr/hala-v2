@@ -1,6 +1,6 @@
 # Terms and Conditions
 
-**Hala** · Effective 21 October 2026
+**Hala** · Effective 1 November 2026
 
 These terms apply to your use of Hala, its source code, its releases and its documentation.
 By downloading, installing or using Hala, you agree to them. If you don't agree, don't use it.
@@ -10,9 +10,10 @@ By downloading, installing or using Hala, you agree to them. If you don't agree,
 You may download Hala, install it on computers you control, and use it, for personal or work
 purposes, to convert and edit files. You may change the code for your own use.
 
-No open-source license has been granted yet. Copying, publishing or redistributing Hala or
-modified versions of it needs the author's written permission, except where the law allows it
-without permission (for example, forking on GitHub as GitHub's own terms permit).
+The source code is released under the [MIT License](LICENSE): you may use, copy, change,
+publish, distribute and sell it, modified or not, as long as the copyright notice and the license
+text come with every copy. Where these terms and the license disagree about the code, the license
+applies.
 
 ## 2. Your files and your responsibilities
 
@@ -58,11 +59,11 @@ Nothing in these terms limits rights you have under consumer law that can't be w
 
 How Hala handles information is described in the [Privacy Policy](PRIVACY.md).
 
-## 7. Changes and termination
+## 7. Changes
 
 These terms may be updated in the repository, with a new effective date. Continuing to use
-Hala after a change means you accept the new terms. Your permission to use Hala ends
-automatically if you break these terms.
+Hala after a change means you accept the new terms. Changes never take back the rights the MIT
+License gives for code you already received.
 
 ## 8. Contact
 
