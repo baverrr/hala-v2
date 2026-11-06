@@ -1,4 +1,4 @@
-"""Re-render the README's pictures (docs/*.png) offscreen, from generated sample files.
+"""Re-render the README's pictures (docs/images/*.png) offscreen, from generated sample files.
 
     .venv/bin/python -I tools/screenshots.py
 
@@ -35,7 +35,7 @@ from PySide6.QtGui import (  # noqa: E402
 )
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-DOCS = ROOT / "docs"
+DOCS = ROOT / "docs" / "images"
 BREEZE_ACCENT = QColor("#3daee9")  # Plasma's default accent, rather than the author's own
 
 
@@ -217,7 +217,7 @@ def main() -> None:
     palette.setColor(QPalette.ColorRole.Highlight, BREEZE_ACCENT)
     app.setPalette(palette)
     app.setFont(QFont("Noto Sans", 10))
-    DOCS.mkdir(exist_ok=True)
+    DOCS.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp) / "Holiday"
         folder.mkdir()
