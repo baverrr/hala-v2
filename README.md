@@ -134,6 +134,7 @@ hala limits                              # show or change the size limits
 - Translations live in `hala/locale/<lang>.po`. Manage them with `python3 tools/i18n.py update|new|check|stats`.
 - Code: `hala/engines/` (converters), `hala/tools/` (tools), `hala/gui/` (wheel, shelf, editor), `packaging/` (the `.deb` builder).
 - Security review: [docs/review-2026-10-21-security.md](docs/review-2026-10-21-security.md)
+- Security check: `bandit -r .` reads its settings from `.bandit`, which says why each one is there.
 </details>
 
 ## License

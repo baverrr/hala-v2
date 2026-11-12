@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 import shlex
-import xml.etree.ElementTree as ET
+import sys
+import xml.etree.ElementTree as ET  # nosec B405: only Thunar's uca.xml, DTDs refused
 from pathlib import Path
 
 from . import formats as f
@@ -193,10 +195,24 @@ THUNAR_TYPES = ("audio-files", "image-files", "other-files", "text-files", "vide
 
 def _read_uca(uca: Path) -> ET.ElementTree | None:
     try:
-        tree = ET.parse(uca, ET.XMLParser(target=ET.TreeBuilder(insert_comments=True)))
-    except (OSError, ET.ParseError):
-        return None  # not there yet (Thunar never started), or not ours to repair
-    return tree if tree.getroot().tag == "actions" else None
+        data = uca.read_bytes()
+    except OSError:
+        return None  # not there yet (Thunar never started)
+    # Thunar never writes a DTD or UTF-16. A DTD could declare entities (an entity bomb), so a file
+    # with a <! declaration outside comments and CDATA is not ours to repair. With none, the parser
+    # has nothing to expand and fetches nothing.
+    bare = re.sub(rb"<!--.*?-->|<!\[CDATA\[.*?\]\]>", b"", data, flags=re.DOTALL)
+    if b"\0" in data or b"<!" in bare:
+        print(f"hala: left {uca} alone: it has a <!DOCTYPE> or <!ENTITY>, or isn't UTF-8, which "
+              "Thunar never writes, so Hala's Thunar actions weren't added", file=sys.stderr)
+        return None
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))  # nosec B314: no DTD
+    try:
+        parser.feed(data)
+        root = parser.close()
+    except (ET.ParseError, LookupError, ValueError):
+        return None  # broken, or an encoding Python can't read: not ours to repair
+    return ET.ElementTree(root) if root.tag == "actions" else None
 
 
 def _ours(action: ET.Element) -> bool:

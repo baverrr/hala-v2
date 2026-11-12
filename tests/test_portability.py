@@ -423,6 +423,31 @@ def test_a_broken_uca_file_isnt_touched() -> None:
     assert uca.read_text() == "<actions><action>"
 
 
+def test_a_uca_file_with_a_dtd_or_utf16_isnt_read() -> None:
+    uca = filemanagers.THUNAR_UCA
+    uca.parent.mkdir(parents=True)
+    bomb = '<?xml version="1.0"?>\n<!DOCTYPE actions [<!ENTITY a "aaaa">]>\n<actions>&a;</actions>'
+    uca.write_text(bomb)
+    filemanagers.install("/usr/bin/hala")
+    assert uca.read_text() == bomb
+    uca.write_bytes(UCA.encode("utf-16"))
+    filemanagers.install("/usr/bin/hala")
+    assert uca.read_bytes() == UCA.encode("utf-16")
+
+
+@pytest.mark.parametrize("text", [
+    "\ufeff" + UCA,  # a UTF-8 byte order mark
+    UCA.replace("<actions>", "<actions>\n<!-- copied from <!DOCTYPE notes -->"),
+    UCA.replace("<actions>", "<actions>\n<!-- note --><x><![CDATA[a <!ENTITY b> & c]]></x>"),
+])
+def test_a_valid_uca_file_is_still_read(text: str) -> None:
+    uca = filemanagers.THUNAR_UCA
+    uca.parent.mkdir(parents=True)
+    uca.write_text(text, encoding="utf-8")
+    filemanagers.install("/usr/bin/hala")
+    assert "Hala…" in uca.read_text(encoding="utf-8")
+
+
 def test_the_package_ships_the_other_file_managers() -> None:
     files = filemanagers.system_files("/usr/bin/hala")
     assert set(files) == {"nautilus-python/extensions/hala_menu.py",

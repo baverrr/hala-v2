@@ -1,0 +1,10 @@
+[bandit]
+# Read by `bandit -r .` on its own. Each choice below is on purpose; review it before changing it.
+# Tests are left out: they use asserts, fake passwords and made-up paths by design.
+exclude = */tests/*,*/test_*.py,*/conftest.py,*/.venv/*,*/venv/*,*/build/*,*/dist/*,*/node_modules/*,*/.git/*,*/__pycache__/*,*/.tox/*,*/.eggs/*
+# B101: asserts check our own invariants and narrow types; none guards input or anything
+#       security-related (python -O would strip them).
+# B404, B603: programs are run with argument lists and no shell. shell=True (B602) and os.system
+#       (B605) are still checked.
+# B607: programs are found on PATH on purpose, not at fixed install paths.
+skips = B101,B404,B603,B607
